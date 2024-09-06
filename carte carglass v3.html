@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plan Centres Carglass Beta - Style Google Maps</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            font-family: 'Roboto', sans-serif;
+            height: 100%;
+            width: 100%;
+        }
+        #map-container {
+            position: relative;
+            height: 100%;
+            width: 100%;
+        }
+        #map { 
+            height: 100%;
+            width: 100%;
+        }
+        #search-container {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 1000;
+            width: 400px;
+        }
+        #search-box {
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            padding: 10px 15px;
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .search-input-container {
+            display: flex;
+            align-items: center;
+            flex-grow: 1;
+        }
+        .search-input-container i {
+            margin-right: 10px;
+            color: #5f6368;
+        }
+        .search-input {
+            flex-grow: 1;
+            border: none;
+            font-size: 16px;
+            outline: none;
+        }
+        #directions-button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 20px;
+            color: #1a73e8;
+            margin-left: 10px;
+        }
+        #destination-container {
+            display: none;
+        }
+        #route-info {
+            position: absolute;
+            left: 10px;
+            top: 130px;
+            width: 400px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            z-index: 1000;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        #route-info.active {
+            max-height: 500px;
+            transition: max-height 0.5s ease-in;
+        }
+        #route-info-content {
+            padding: 15px;
+            position: relative;
+        }
+        #route-info h3 {
+            margin-top: 0;
+            color: #1a73e8;
+        }
+        #close-route-info {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            color: #5f6368;
+        }
+        .custom-popup .leaflet-popup-content-wrapper {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 3px 14px rgba(0,0,0,0.3);
+            padding: 5px;
+        }
+        .custom-popup .leaflet-popup-content {
+            margin: 10px;
+            line-height: 1.5;
+            font-size: 14px;
+        }
+        .custom-popup h4 {
+            margin: 0 0 5px 0;
+            font-size: 16px;
+            color: #1a73e8;
+        }
+        .custom-popup p {
+            margin: 5px 0;
+        }
+        .leaflet-bottom .leaflet-control-zoom {
+            margin-bottom: 40px;
+        }
+        .leaflet-right .leaflet-control-zoom {
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="map-container">
+        <div id="search-container">
+            <div id="search-box">
+                <div class="search-input-container">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="start-input" class="search-input" placeholder="Rechercher Centres Carglass">
+                </div>
+                <button id="directions-button"><i class="fas fa-directions"></i></button>
+            </div>
+            <div id="destination-container">
+                <div id="search-box">
+                    <div class="search-input-container">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <input type="text" id="end-input" class="search-input" placeholder="Choisir une destination">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="map"></div>
+        <div id="route-info">
+            <div id="route-info-content">
+                <button id="close-route-info"><i class="fas fa-times"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const API_KEY = '5b3ce3597851110001cf62480c9a6e86f751478291620b14c07609af';
+            const map = L.map('map', {
+                zoomControl: false
+            }).setView([46.603354, 1.888334], 6);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            L.control.zoom({
+                position: 'bottomright'
+            }).addTo(map);
+
+            let routingLayer;
+            const routeInfo = document.getElementById('route-info');
+            const routeInfoContent = document.getElementById('route-info-content');
+            const startInput = document.getElementById('start-input');
+            const endInput = document.getElementById('end-input');
+            const destinationContainer = document.getElementById('destination-container');
+            let selectedStart = null;
+            let selectedEnd = null;
+
+            const landmarks = [
+                {name: "ABBEVILLE", address: "31 RTE D'AMIENS", postalCode: "80100", city: "ABBEVILLE", lat: 50.105508, lon: 1.847757},
+                {name: "AGDE", address: "boulevard Maurice Pacull CC Espace Grand Cap", postalCode: "34300", city: "AGDE", lat: 50.795333, lon: 1.87991},
+                {name: "AGEN", address: "ZONE COMMERCIALE AGEN SUD RUE DE BELLILE", postalCode: "47000", city: "AGEN", lat: 44.184209, lon: 0.615943},
+                {name: "AIRE SUR LA LYS", address: "Rue d'Isbergues Centre Cial Carrefour", postalCode: "62120", city: "AIRE SUR LA LYS", lat: 50.638493, lon: 2.405315},
+                {name: "AIRE SUR L'ADOUR", address: "43 CHEMIN DE CLAVERIE", postalCode: "40800", city: "AIRE SUR L'ADOUR", lat: 43.737172, lon: -0.26742},
+                {name: "AIX LES BAINS", address: "90 ALLEE DES ERABLES ZONE COMMERCIALE LECLERC", postalCode: "73420", city: "73420 DRUMETTAZ - CLARAFOND", lat: 45.658649, lon: 5.912116},
+                {name: "AIX LES MILLES", address: "330 RUE GUILLAUME DU VAIR ZA LA PIOLINE", postalCode: "13290", city: "AIX EN PROVENCE", lat: 43.50789, lon: 5.403897},
+                {name: "AIZENAY", address: "CC PORTE DU LITTORAL", postalCode: "85190", city: "AIZENAY", lat: 46.733425, lon: -1.595305},
+                {name: "ALBERT", address: "CHEMIN CROISE DE BELLEVUE", postalCode: "80300", city: "ALBERT", lat: 49.995827, lon: 2.658332},
+                {name: "ALBERTVILLE", address: "11 CHEMIN DE LA CHARRETTE", postalCode: "73200", city: "ALBERTVILLE", lat: 45.663683, lon: 6.364378},
+                {name: "ALBI", address: "101 AVE FRANCOIS VERDIER", postalCode: "81000", city: "ALBI", lat: 43.9194, lon: 2.129472},
+                {name: "ALENCON - CONDE", address: "2 RUE DU HERTRE", postalCode: "61250", city: "CONDE SUR SARTHE", lat: 48.431523, lon: 0.056433},
+                {name: "ALES - ST HILAIRE", address: "7 CHEMIN DE CARAGIN", postalCode: "30560", city: "ST HILAIRE DE BRETHMAS", lat: 44.104272, lon: 4.103649},
+                {name: "ALLONNES", address: "Lieu dit La Raterie", postalCode: "72700", city: "ALLONNES", lat: 47.976792, lon: 0.155048},
+                {name: "AMBERIEU EN BUGEY", address: "ZAC POINT BOEUF RUE DU COMMANDANT JACQUIN", postalCode: "1500", city: "AMBERIEU EN BUGEY", lat: 45.977925, lon: 5.345225},
+                {name: "AMIENS LES DURY", address: "AVE PAUL CLAUDEL", postalCode: "80480", city: "AMIENS LES DURY", lat: 49.859164, lon: 2.274755},
+                {name: "AMIENS NORD", address: "CENTRE COMMERCIAL CARREFOUR ROUTE DE DOULLENS", postalCode: "80000", city: "AMIENS", lat: 49.882297, lon: 2.296873},
+                {name: "AMIENS SUD", address: "CC AMIENS SUD", postalCode: "80480", city: "DURY", lat: 49.859164, lon: 2.274755},
+                {name: "ANDREZIEUX BOUTHEON", address: "RUE DE L AEROPORT", postalCode: "42160", city: "ANDREZIEUX - BOUTHEON", lat: 45.531827, lon: 4.293345},
+                {name: "ANGERS", address: "RUE CLEMENT ADER ZONE SAINT SERGE", postalCode: "49100", city: "ANGERS", lat: 47.487621, lon: -0.544915},
+                {name: "ANGERS AVRILLE", address: "6 ROUTE NATIONALE ZONE INDUSTRIELLE CROIX CADEAU", postalCode: "49240", city: "AVRILLE", lat: 47.517599, lon: -0.608001},
+                {name: "ANGLET", address: "Rue des Barthes BP110", postalCode: "64600", city: "ANGLET", lat: 43.483545, lon: -1.508127},
+                {name: "ANGOULEME - CHAMPNIERS", address: "ZAC LES MONTAGNES RUE DE LA GÉNOISE", postalCode: "16430", city: "CHAMPNIERS", lat: 45.689981, lon: 0.183678},
+                {name: "ANGOULEME LA COURONNE", address: "ZC CHANTEMERLE", postalCode: "16400", city: "LA COURONNE", lat: 45.62466, lon: 0.110646},
+                {name: "ANGOULEME SOYAUX", address: "284, Avenue du Générale de Gaulle ZAC les Effamiers", postalCode: "16800", city: "SOYAUX", lat: 45.634353, lon: 0.212857},
+                {name: "ANGOULINS", address: "Z.A.C Les Fourneaux La Rochelle Sud", postalCode: "17690", city: "ANGOULINS", lat: 46.105059, lon: -1.105533},
+                {name: "ANNECY - CRAN GEVRIER", address: "7 RUE DU TANAY", postalCode: "74960", city: "ANNECY", lat: 45.89328, lon: 6.089145},
+                {name: "ANNECY - EPAGNY", address: "115, RUE DES ROSEAUX", postalCode: "74330", city: "EPAGNY METZ-TESSY", lat: 45.940698, lon: 6.078885},
+                {name: "ANNONAY", address: "ZONE D'ACTIVITE DE MARENTON", postalCode: "7100", city: "ANNONAY", lat: 49.901046, lon: 1.121311},
+                {name: "ANNONAY - DAVEZIEUX", address: "1782 Route de Lyon", postalCode: "7430", city: "DAVEZIEUX", lat: 45.260186, lon: 4.702175},
+                {name: "ANTIBES", address: "270 ALLEE DES TERRIERS LES TERRIERS DU NORD", postalCode: "6600", city: "ANTIBES", lat: 43.601841, lon: 7.079284},
+                {name: "ANTONY", address: "134 AVE DE LA DIVISION LECLERC", postalCode: "92160", city: "ANTONY", lat: 48.744459, lon: 2.3034},
+                {name: "APT", address: "382 avenue de Lancon", postalCode: "84400", city: "APT", lat: 43.883383, lon: 5.381069},
+                {name: "ARES", address: "41 RUE DU TEMPLE ZONE D'ACTIVITÉS LA GRANDE LANDE", postalCode: "33740", city: "ARES", lat: 44.776972, lon: -1.12276},
+                {name: "ARGENTAN", address: "68 AVENUE DE LA 2EME DB", postalCode: "61200", city: "ARGENTAN", lat: 48.73594, lon: -0.03196},
+                {name: "ARGENTAT", address: "66 AVE JOSEPH VACHAL", postalCode: "19400", city: "ARGENTAT", lat: 45.096943, lon: 1.939152},
+                {name: "ARGENTEUIL", address: "110/112 ROUTE DE PONTOISE ZAC DE LA FOSSE AUX LOUPS", postalCode: "95100", city: "ARGENTEUIL", lat: 48.948716, lon: 2.209677},
+                {name: "ARISTIDE BRIAND LYON 3", address: "3 place Aristide Briand", postalCode: "69003", city: "LYON", lat: 45.753377, lon: 4.849474},
+                {name: "ARLES", address: "CHEMIN DES MOINES", postalCode: "13200", city: "ARLES", lat: 43.698854, lon: 4.641145},
+                {name: "ARQUES", address: "26 Avenue Georges Brassens Zone des Frais Fonds", postalCode: "62510", city: "ARQUES", lat: 50.735026, lon: 2.275572},
+                {name: "ARRAS", address: "Rue Leon Foucault", postalCode: "62000", city: "ARRAS", lat: 50.299843, lon: 2.728779},
+{name: "ARRAS DUISANS", address: "PARC DES BONNETTES ROUTE DE SAINT POL DUISANS", postalCode: "62000", city: "ARRAS", lat: 50.296558, lon: 2.73629},
+        {name: "AUBAGNE", address: "691 AVE DES PALUDS ZI DES PALUDS", postalCode: "13400", city: "AUBAGNE", lat: 43.287937, lon: 5.599243},
+        {name: "AUBENAS", address: "ZA PONSON MOULON 3 RUE DE LA DURONNE", postalCode: "7200", city: "AUBENAS", lat: 44.617951, lon: 4.406041},
+        {name: "AUBIERE", address: "10 AVENUE DU ROUSSILLON", postalCode: "63170", city: "AUBIERE", lat: 45.75519, lon: 3.129301},
+        {name: "AUCH", address: "ZAC DE CLARAC RUE MEMMINGEN", postalCode: "32000", city: "AUCH", lat: 43.664699, lon: 0.590144},
+        {name: "AUCH SUD", address: "RN21", postalCode: "32000", city: "AUCH", lat: 43.652916, lon: 0.51889},
+        {name: "AUDENGE MERIGNPP", address: "Zone Artisanale 13 lieu-dit Louguelle", postalCode: "33980", city: "AUDENGE", lat: 44.696946, lon: -0.984502},
+        {name: "AUDINCOURT", address: "D 437 AVENUE DE LA REVOLUTION DE 1789", postalCode: "25400", city: "AUDINCOURT", lat: 47.482933, lon: 6.845409},
+        {name: "AULNAY SOUS BOIS", address: "11 - 15 rue Waldeck Rousseau", postalCode: "93600", city: "AULNAY SOUS BOIS", lat: 48.92747, lon: 2.482172},
+        {name: "AULNOY LES VALENCIENNES", address: "Avenue Jules Mousseron", postalCode: "59300", city: "AULNOY LES VALENCIENNES", lat: 50.329777, lon: 3.512826},
+        {name: "AURAY", address: "10, Rue d'Irlande", postalCode: "56400", city: "AURAY", lat: 47.664871, lon: -3.008439},
+        {name: "AURILLAC", address: "ZAC LA SABLIERE RN 122", postalCode: "15000", city: "AURILLAC", lat: 44.898125, lon: 2.410972},
+        {name: "AUTERIVE", address: "50 ROUTE DE TOULOUSE", postalCode: "31190", city: "AUTERIVE", lat: 43.366263, lon: 1.453402},
+        {name: "AUTUN", address: "ZONE D ACTIVITES BELLEVUE CENTRE COMMERCIAL INTERMARCHE", postalCode: "71400", city: "AUTUN", lat: 46.972113, lon: 4.264551},
+        {name: "AUXERRE", address: "14 AVENUE ROBERT SCHUMANN ZAC DES CLAIRIONS", postalCode: "89000", city: "AUXERRE", lat: 47.814926, lon: 3.572557},
+        {name: "AVALLON", address: "22 RUE DES ECOLES", postalCode: "89200", city: "AVALLON", lat: 47.492476, lon: 3.913154},
+        {name: "AVERMES", address: "ZAC LES PORTES D'ALLIER", postalCode: "3000", city: "AVERMES", lat: 46.589524, lon: 3.324823},
+        {name: "AVIGNON", address: "77 AVENUE PIERRE SEMARD", postalCode: "84000", city: "AVIGNON", lat: 43.937357, lon: 4.82465},
+        {name: "AVIGNON MONTFAVET", address: "64 RUE DU SOUS MARIN CASABLANCA ZAC DE LA CRISTOLE", postalCode: "84140", city: "AVIGNON", lat: 43.922926, lon: 4.85935},
+        {name: "AVRANCHES", address: "PARC D'ACTIVITE DE LA BAIE CC RÉGIONAL", postalCode: "50300", city: "AVRANCHES", lat: 48.655899, lon: -1.34889},
+        {name: "BAILLEUL", address: "Rue Gutenberg", postalCode: "59270", city: "BAILLEUL", lat: 50.730513, lon: 2.745347},
+        {name: "BAIN DE BRETAGNE", address: "23 Rue Estuaires ZAC de Château Gaillard", postalCode: "35470", city: "BAIN DE BRETAGNE", lat: 47.858017, lon: -1.688293},
+        {name: "BAPAUME", address: "Rue des Freres Coint Rue du Tour de Ville - RN 17 Cite St Fiacre", postalCode: "62450", city: "BAPAUME", lat: 50.106677, lon: 2.849189},
+        {name: "BAR LE DUC", address: "PARC COMMERCIAL OUDINOT 77, RUE ERNEST BRADFER", postalCode: "55000", city: "BAR LE DUC", lat: 48.765802, lon: 5.177155},
+        {name: "BARBEZIEUX", address: "AVENUE DE L EUROPE", postalCode: "16300", city: "BARBEZIEUX", lat: 45.478088, lon: -0.155932},
+        {name: "BARENTIN - PISSY POVILLE", address: "1 RUE DU COMMERCE ZONE COMMERCIALE DE BARENTIN", postalCode: "76360", city: "PISSY POVILLE", lat: 49.530165, lon: 0.992265},
+        {name: "BARJOUVILLE", address: "30 rue des Pierres Missigault", postalCode: "28630", city: "BARJOUVILLE", lat: 48.415099, lon: 1.4703},
+        {name: "BAYEUX", address: "7 BOULEVARD D EINDHOVEN", postalCode: "14400", city: "BAYEUX", lat: 49.283255, lon: -0.71241},
+        {name: "BAYONNE", address: "8 RUE ARNAUD DETROYAT", postalCode: "64100", city: "BAYONNE", lat: 43.489875, lon: -1.492292},
+        {name: "BAYONNE STE CROIX", address: "20 AVENUE  MARECHAL JUIN", postalCode: "64100", city: "BAYONNE", lat: 43.49248, lon: -1.459025},
+        {name: "BAZEILLES", address: "GEANT Centre Cial MAC MAHON Route Nationale 43", postalCode: "8140", city: "BAZEILLES", lat: 49.684896, lon: 4.972668},
+        {name: "BEAUCAIRE", address: "CENTRE COMMERCIAL CARREFOUR 234 AVENUE AVITUS", postalCode: "30300", city: "BEAUCAIRE", lat: 43.815126, lon: 4.612431},
+        {name: "BEAUMONT SUR OISE", address: "48 RUE DE L ISLE ADAM D922", postalCode: "95260", city: "BEAUMONT SUR OISE", lat: 49.138706, lon: 2.276674},
+        {name: "BEAUNE", address: "54 ROUTE DE POMMARD", postalCode: "21200", city: "BEAUNE", lat: 47.017351, lon: 4.822751},
+        {name: "BEAUVAIS", address: "4 IMPASSE DE PINCONLIEU", postalCode: "60000", city: "BEAUVAIS", lat: 49.438757, lon: 2.111115},
+        {name: "BEDEE", address: "LIEU DIT LE GOUZET", postalCode: "35137", city: "BEDEE", lat: 48.139636, lon: -1.939993},
+        {name: "BELFORT", address: "AVENUE CAPITAINE DE LA LAURENCIE ZAC DE LA JUSTICE", postalCode: "90000", city: "BELFORT", lat: 47.639173, lon: 6.873229},
+        {name: "BELLEY", address: "Centre Cial Carrefour Market ZAC de L'Ousson", postalCode: "1300", city: "BELLEY", lat: 45.760684, lon: 5.705843},
+        {name: "BERCK SUR MER", address: "RD 94-RUE DES ARGOUSIERS PARC D'ACTIVITE DE LA VIGOGNE", postalCode: "62600", city: "BERCK SUR MER", lat: 50.403406, lon: 1.599586},
+        {name: "BERCK SUR MER - VIGOGNE", address: "CENTRE COMMERCIAL CARREFOUR", postalCode: "62600", city: "BERCK SUR MER", lat: 48.501788, lon: 2.58266},
+        {name: "BERGERAC", address: "ZONE COMMERCIALE DE LA CAVAILLE NORD", postalCode: "24100", city: "BERGERAC", lat: 44.834002, lon: 0.456087},
+        {name: "BERNAY - MENNEVAL", address: "39 ROUTE DE ROUEN", postalCode: "27300", city: "MENNEVAL", lat: 49.108188, lon: 0.616255},
+        {name: "BESANCON", address: "7 RUE JOUCHOUX", postalCode: "25000", city: "BESANCON", lat: 47.23754, lon: 5.98826},
+        {name: "BESANCON CHATEAUFARINE", address: "4 Rue André Chénier ZAC Chateaufarine", postalCode: "25000", city: "BESANCON", lat: 47.21686, lon: 5.95045},
+        {name: "BESANCON VALENTIN", address: "2 CHEMIN DE L ETANG CC CARREFOUR", postalCode: "25480", city: "BESANCON", lat: 47.283758, lon: 5.994556},
+        {name: "BESSONCOURT", address: "Zone Commerciale La Porte de Belfort", postalCode: "90160", city: "BESSONCOURT", lat: 47.648256, lon: 6.945325},
+        {name: "BETHUNE", address: "3, PLACE SAINT-ELOI", postalCode: "62400", city: "BETHUNE", lat: 50.528289, lon: 2.642549},
+        {name: "BETHUNE LA ROTONDE", address: "CENTRE COMMERCIAL AUCHAN LA ROTONDE", postalCode: "62400", city: "BETHUNE", lat: 50.521778, lon: 2.6269},
+        {name: "BEYNOST", address: "ALLÉE DU PRÉ CAILLAT CC PORTE DE LA DOMBES ZAC DES BATERSES", postalCode: "1700", city: "BEYNOST", lat: 45.823392, lon: 4.995727},
+        {name: "BEZIERS", address: "21 RUE DE L'OLIVETTE C. CIAL MONTIMARAN", postalCode: "34500", city: "BEZIERS", lat: 43.339159, lon: 3.270099},
+        {name: "BIGANOS", address: "196 AVENUE DE LA COTE D'ARGENT", postalCode: "33380", city: "BIGANOS", lat: 44.646576, lon: -0.948443},
+        {name: "BLAIN", address: "5 RUE DES DROITS DE L'HOMME", postalCode: "44130", city: "BLAIN", lat: 47.47386, lon: -1.760093},
+        {name: "BLOIS", address: "107 AVENUE DE VENDOME", postalCode: "41000", city: "BLOIS", lat: 47.604424, lon: 1.314453},
+        {name: "BLOIS VILLEBAROU", address: "CC Cora Parc des Couratiers RD 957", postalCode: "41000", city: "VILLEBAROU", lat: 47.620279, lon: 1.300582},
+        {name: "BOE", address: "AVENUE DU DR JEAN NOGUES", postalCode: "47550", city: "BOE", lat: 44.187871, lon: 0.658076},
+        {name: "BOLLENE", address: "ZI DE SERVATTES AVENUE JEAN MOULIN", postalCode: "84500", city: "BOLLENE", lat: 44.321902, lon: 4.7343},
+        {name: "BONNEUIL SUR MARNE", address: "17, Avenue de la Convention", postalCode: "94380", city: "BONNEUIL SUR MARNE", lat: 48.767126, lon: 2.486513},
+        {name: "BORDEAUX LE LAC", address: "Avenue de 40 Journaux", postalCode: "33300", city: "BORDEAUX", lat: 44.883181, lon: -0.570678},
+        {name: "BORDEAUX NORD", address: "1 RUE BOUGAINVILLE ANGLE BOULEVARD ALFRED DANEY", postalCode: "33300", city: "BORDEAUX", lat: 44.870984, lon: -0.562593},
+        {name: "BORDEAUX TOURATTE", address: "116 QUAI DE LA SOUYS", postalCode: "33100", city: "BORDEAUX", lat: 44.832162, lon: -0.547069},
+        {name: "BOUGIVAL", address: "58 QUAI BOISSY D ANGLAS", postalCode: "78380", city: "BOUGIVAL", lat: 48.868394, lon: 2.131141},
+        {name: "BOULIAC", address: "Centre Commercial AUCHAN", postalCode: "33270", city: "BOULIAC", lat: 44.815028, lon: -0.52329},
+{name: "BOURG DE PEAGE", address: "28 ALLÉE DE PROVENCE", postalCode: "26300", city: "BOURG DE PEAGE", lat: 45.034954, lon: 5.052298},
+        {name: "BOURG EN BRESSE", address: "17 RUE JEAN LOUIS CARRA", postalCode: "1000", city: "BOURG EN BRESSE", lat: 46.20307, lon: 5.244939},
+        {name: "BOURGES", address: "CHAUSSEE DE CHAPPE CC CARREFOUR", postalCode: "18000", city: "BOURGES", lat: 47.088284, lon: 2.421121},
+        {name: "BOURGES AVENIR", address: "8-10 BOULEVARD DE L'AVENIR", postalCode: "18000", city: "BOURGES", lat: 47.08131, lon: 2.383337},
+        {name: "BOURGOIN JALLIEU", address: "74 AVE DU PROFESSEUR TIXIER", postalCode: "38300", city: "BOURGOIN JALLIEU", lat: 45.588769, lon: 5.285926},
+        {name: "BOUSSY ST ANTOINE", address: "Centre commercial Val d'Yerres 2", postalCode: "91800", city: "BOUSSY ST ANTOINE", lat: 48.682469, lon: 2.533359},
+        {name: "BOUZONVILLE", address: "Zone d'activités Ecopole", postalCode: "57320", city: "BOUZONVILLE", lat: 49.301557, lon: 6.588121},
+        {name: "BRESSUIRE", address: "20 Boulevard de l'Europe", postalCode: "79300", city: "BRESSUIRE", lat: 46.834025, lon: -0.484057},
+        {name: "BREST", address: "109 RTE DE GOUESNOU", postalCode: "29200", city: "BREST", lat: 48.412095, lon: -4.468413},
+        {name: "BREST IROISE", address: "Avenue de Tallinn La Cavale Blanche CC de l'Iroise", postalCode: "29200", city: "BREST", lat: 48.388097, lon: -4.528769},
+        {name: "BREST KERGARADEC", address: "Route de Gouesnou Rond point de Kergaradec ZAC de l'hermitage", postalCode: "29200", city: "BREST", lat: 48.129082, lon: -1.828632},
+        {name: "BRETIGNY SUR ORGE", address: "CD19", postalCode: "91220", city: "BRETIGNY-SUR-ORGE", lat: 48.603562, lon: 2.303387},
+        {name: "BRETTEVILLE SUR ODON", address: "ROUTE DE  BRETAGNE", postalCode: "14760", city: "BRETTEVILLE SUR ODON", lat: 49.166519, lon: -0.413372},
+        {name: "BRIANCON", address: "302 rue des couteliers Zone d'activités Commerciales Sud", postalCode: "5100", city: "BRIANCON", lat: 44.885762, lon: 6.626992},
+        {name: "BRIE COMTE ROBERT", address: "RUE GUSTAVE EIFFEL ZAC DE LA HAIE PASSART", postalCode: "77170", city: "BRIE COMTE ROBERT", lat: 48.702563, lon: 2.601056},
+        {name: "BRIGNOLES", address: "51 BD BERNARD LONG ZI Nicopolis", postalCode: "83170", city: "BRIGNOLES", lat: 43.406723, lon: 6.054517},
+        {name: "BRIOUDE", address: "42 Route de Clermont Cohade Route de Clermont", postalCode: "43100", city: "BRIOUDE", lat: 45.315056, lon: 3.372988},
+        {name: "BRISSAC QUINCE", address: "PARC D'ACTIVITES DES FONTENELLES ZI DES GROUAS", postalCode: "49320", city: "BRISSAC-QUINCE", lat: 0, lon: 0},
+        {name: "BRIVE LA GAILLARDE", address: "ZAC DU MAZAUD RUE ARMAND SOURIE", postalCode: "19100", city: "BRIVE LA GAILLARDE", lat: 45.145241, lon: 1.470532},
+        {name: "BRIVES CHARENSAC", address: "147 AVE CHARLES DUPUY", postalCode: "43700", city: "BRIVES CHARENSAC", lat: 45.050569, lon: 3.918874},
+        {name: "BRUAY LA BUISSIERE", address: "864 RUE DE LA REPUBLIQUE - RN 41", postalCode: "62700", city: "BRUAY LA BUISSIERE", lat: 50.477082, lon: 2.533477},
+        {name: "CAEN", address: "89 AVE GEORGES CLEMENCEAU", postalCode: "14000", city: "CAEN", lat: 49.189448, lon: -0.346715},
+        {name: "CAEN ROTS", address: "Chemin de la Croix Vautier  CC Cora", postalCode: "14980", city: "ROTS", lat: 0, lon: 0},
+        {name: "CAGNES SUR MER", address: "79 AVENUE DE NICE", postalCode: "6800", city: "CAGNES SUR MER", lat: 43.658915, lon: 7.164658},
+        {name: "CAHORS", address: "176 CHEMIN DE BELLE CROIX LA BEYNE", postalCode: "46000", city: "CAHORS", lat: 44.428541, lon: 1.442091},
+        {name: "CAHORS QUERCY", address: "114 RTE DE TOULOUSE", postalCode: "46000", city: "CAHORS", lat: 44.425006, lon: 1.440865},
+        {name: "CALAIS", address: "175 BLD DE L'EGALITE", postalCode: "62100", city: "CALAIS", lat: 50.945711, lon: 1.872235},
+        {name: "CALAIS COQUELLES", address: "CC DES 2 CAPS 195 AVENUE ROGER SALENGRO", postalCode: "62231", city: "COQUELLES", lat: 50.944484, lon: 1.823607},
+        {name: "CALLIAN", address: "94, Allée des Griottiers Plan de la Grande Vigne", postalCode: "83440", city: "CALLIAN", lat: 43.604464, lon: 6.754159},
+        {name: "CALUIRE", address: "13 AVE DU GENERAL LECLERC", postalCode: "69300", city: "CALUIRE", lat: 45.802333, lon: 4.857765},
+        {name: "CAMBRAI", address: "13 RUE DES DOCKS", postalCode: "59400", city: "CAMBRAI", lat: 50.177112, lon: 3.21939},
+        {name: "CANET EN ROUSSILLONPP", address: "14 RUE EOLE Centre commercial des Alizes", postalCode: "66140", city: "CANET EN ROUSSILLON", lat: 42.702195, lon: 3.021816},
+        {name: "CANNES", address: "9 BLD VALLOMBROSA", postalCode: "6400", city: "CANNES", lat: 43.552094, lon: 7.006236},
+        {name: "CANNES MANDELIEU", address: "Z I des les Tourrades", postalCode: "6210", city: "MANDELIEU", lat: 43.543967, lon: 6.937887},
+        {name: "CAPVERN LES BAINS", address: "Centre Commercial Intermarché Roqueda Darré", postalCode: "65130", city: "CAPVERN LES BAINS", lat: 43.111874, lon: 0.355088},
+        {name: "CARCASSONNE", address: "BLD DENIS PAPIN ZI DE LA BOURIETTE", postalCode: "11000", city: "CARCASSONNE", lat: 43.208504, lon: 2.320648},
+        {name: "CARENTAN", address: "CHEMIN DE LA CHUQUE CC LECLERC", postalCode: "50500", city: "CARENTAN", lat: 49.30093, lon: -1.248076},
+        {name: "CARHAIX - PLOUGUER", address: "3 RUE GENERAL J. DE LA BOLLARDIERE ZAC DE LA VILLENEUVE", postalCode: "29270", city: "CARHAIX-PLOUGUER", lat: 48.276511, lon: -3.539282},
+        {name: "CARNON", address: "Avenue Jean Baptiste Solignac D62E2", postalCode: "34280", city: "CARNON", lat: 43.548604, lon: 3.978227},
+        {name: "CARPENTRAS", address: "737 Avenue de Comtat Venaissin Route de Saint Didier", postalCode: "84200", city: "CARPENTRAS", lat: 44.049459, lon: 5.056712},
+        {name: "CARQUEFOU", address: "24 ROUTE DE PARIS", postalCode: "44470", city: "CARQUEFOU", lat: 47.258803, lon: -1.503991},
+        {name: "CARS", address: "Lieu Dit LA GRUPPE", postalCode: "33390", city: "CARS", lat: 45.126996, lon: -0.637458},
+        {name: "CASTELNAU LE LEZ", address: "500 AVE DE L'EUROPE", postalCode: "34170", city: "CASTELNAU LE LEZ", lat: 43.631573, lon: 3.909551},
+        {name: "CASTELNAUDARY", address: "CENTRE CIAL INTERMARCHE O CASTELl 211 ROUTE DE VILLASAVARY", postalCode: "11400", city: "CASTELNAUDARY", lat: 43.29886, lon: 1.958124},
+        {name: "CASTELSARRASIN", address: "3 ROUTE DE TOULOUSE", postalCode: "82100", city: "CASTELSARRASIN", lat: 44.035634, lon: 1.113599},
+        {name: "CASTRES", address: "21 RUE DE MELOU", postalCode: "81100", city: "CASTRES", lat: 43.59058, lon: 2.216299},
+        {name: "CAUDRY", address: "BOULEVARD DU 8 MAI 45  LIEU DIT  LES TERRES CRUES", postalCode: "59540", city: "CAUDRY", lat: 50.125182, lon: 3.422667},
+        {name: "CAVAILLON", address: "197 AVENUE PAUL PONCE", postalCode: "84300", city: "CAVAILLON", lat: 43.830209, lon: 5.036215},
+        {name: "CAVIGNAC", address: "LIEU DIT RILLAC", postalCode: "33620", city: "CAVIGNAC", lat: 45.095401, lon: -0.386247},
+        {name: "CENON", address: "31 AVE JEAN JAURES", postalCode: "33150", city: "CENON", lat: 44.855573, lon: -0.534956},
+        {name: "CESSON SEVIGNE", address: "27 RTE DE RENNES", postalCode: "35510", city: "CESSON SEVIGNE", lat: 48.114097, lon: -1.613769},
+        {name: "CHALLANS", address: "6 RUE DU CHEVALIER CHARRETTE", postalCode: "85300", city: "CHALLANS", lat: 46.83862, lon: -1.8736},
+        {name: "CHALON SUR SAONE", address: "96 AVE DE PARIS", postalCode: "71100", city: "CHALON SUR SAONE", lat: 46.796672, lon: 4.847971},
+        {name: "CHALONS EN CHAMPAGNE", address: "ZA DES ESCARNOTIERES 16 RUE BLAISE PASCAL", postalCode: "51000", city: "CHALONS EN CHAMPAGNE", lat: 48.941864, lon: 4.399705},
+        {name: "CHALONS ST MARCEL", address: "RUE RENE CASSIN ZI SUD", postalCode: "71380", city: "ST MARCEL", lat: 46.76414, lon: 4.871638},
+        {name: "CHALONS ST MEMMIE", address: "Avenue du président Roosevelt", postalCode: "51470", city: "ST MEMMIE", lat: 48.945005, lon: 4.383578},
+        {name: "CHAMBERY", address: "355 AVE DES GRANDS VERGERS", postalCode: "73000", city: "CHAMBERY", lat: 45.579405, lon: 5.909012},
+        {name: "CHAMBOURCY", address: "22 RTE DE MANTES RN 13", postalCode: "78240", city: "CHAMBOURCY", lat: 48.90505, lon: 2.052241},
+        {name: "CHAMBRAY LES TOURS", address: "50 RUE CHARLES COULOMB", postalCode: "37170", city: "CHAMBRAY LES TOURS", lat: 47.332916, lon: 0.701621},
+        {name: "CHAMPAGNOLE", address: "240 RUE PONSAR", postalCode: "39300", city: "CHAMPAGNOLE", lat: 46.751816, lon: 5.911631},
+        {name: "CHAMPIGNY SUR MARNE", address: "141 Avenue du General Leclerc", postalCode: "94500", city: "CHAMPIGNY SUR MARNE", lat: 48.828016, lon: 2.512973},
+        {name: "CHANTONNAY", address: "45 AV. G. CLÉMENCEAU CC HYPER U", postalCode: "85110", city: "CHANTONNAY", lat: 46.681506, lon: -1.049269},
+{name: "CHARLEVILLE", address: "16 RUE PAULIN RICHIER", postalCode: "8000", city: "CHARLEVILLE MEZIERES", lat: 49.740902, lon: 4.704897},
+        {name: "CHASSENEUIL DU POITOU", address: "ZONE DES PHILAMBINS 7, RUE DU COMMERCE", postalCode: "86360", city: "CHASSENEUIL-DU-POITOU", lat: 46.651186, lon: 0.365522},
+        {name: "CHATEAU D OLERON", address: "240 Avenue de la Beaucoursière", postalCode: "17480", city: "LE CHATEAU D OLERON", lat: 45.880457, lon: -1.221614},
+        {name: "CHATEAU D OLONNE", address: "60 AVENUE DE TALMONT SAINT HILAIRE", postalCode: "85180", city: "Les Sables d'Olonne", lat: 46.485551, lon: -1.734482},
+        {name: "CHATEAU THIERRY", address: "50 AVENUE DU GÉNÉRAL DE GAULLE", postalCode: "2400", city: "ESSÔMES-SUR-MARNE", lat: 49.033142, lon: 3.378615},
+        {name: "CHATEAUBERNARD", address: "RUE PIERRE LATECOERE ZONE COMMERCIALE FIEF DU ROY", postalCode: "16100", city: "CHATEAUBERNARD", lat: 45.679098, lon: -0.309109},
+        {name: "CHATEAUBRIANT", address: "ZI Route de St Nazaire Rue Martin Luther King", postalCode: "44110", city: "CHATEAUBRIANT", lat: 47.70071, lon: -1.39944},
+        {name: "CHATEAUDUN - ST DENIS", address: "ZAC DE L¿ABBAYE D927", postalCode: "28200", city: "ST DENIS LANNERAY", lat: 48.068757, lon: 1.301969},
+        {name: "CHATEAUGIRON", address: "CC Hyper U ZC Univer", postalCode: "35410", city: "CHATEAUGIRON", lat: 48.049184, lon: -1.498373},
+        {name: "CHATEAU-GONTIER", address: "3 RUE DE TERRE ROUGE", postalCode: "53200", city: "AZE", lat: 47.825743, lon: -0.686229},
+        {name: "CHATEAUROUX POINCONNET", address: "Route de la Chatre LE POINCONNET", postalCode: "36330", city: "CHATEAUROUX", lat: 46.773361, lon: 1.686275},
+        {name: "CHATEAUROUX ST MAUR", address: "BD DU FRANC ZAC DE CAP SUD", postalCode: "36250", city: "ST MAUR", lat: 46.811836, lon: 1.654997},
+        {name: "CHATELLERAULT", address: "32, RUE ROLAND GARROS", postalCode: "86100", city: "CHATELLERAULT", lat: 46.842249, lon: 0.547489},
+        {name: "CHAUMONT", address: "1 RUE JULES CHÉRET", postalCode: "52000", city: "CHAUMONT", lat: 48.096166, lon: 5.144643},
+        {name: "CHAUMONTEL", address: "RN 16", postalCode: "95270", city: "CHAUMONTEL", lat: 49.13034, lon: 2.435644},
+        {name: "CHECY", address: "10 RUE FRANÇOIS ARAGO", postalCode: "45430", city: "CHECY", lat: 47.906029, lon: 2.035339},
+        {name: "CHELLES", address: "119 AVENUE DU GENDARME CASTERMANT", postalCode: "77500", city: "CHELLES", lat: 48.878476, lon: 2.610572},
+        {name: "CHENNEVIERES SUR MARNE", address: "85 ROUTE DE PROVINS C/Cial CARREFOUR PINCE-VENT RN4", postalCode: "94430", city: "CHENNEVIERES SUR MARNE", lat: 48.792643, lon: 2.554652},
+        {name: "CHENOVE", address: "35 RUE DE LONGVIC", postalCode: "21300", city: "CHENOVE", lat: 47.287885, lon: 5.013868},
+        {name: "CHERBOURG - LA GLACERIE", address: "ZONE COMMERCIALE DE LA GLACERIE, ZONE DES MARETTES AVENUE DE LA BANQUE A A GENETS, RN 13", postalCode: "50470", city: "CHERBOURG-EN -COTENTIN", lat: 49.604935, lon: -1.606699},
+        {name: "CHINON", address: "ZA LES PLAINES DES VAUX ALLÉE JACQUELINE AURIOL", postalCode: "37500", city: "CHINON", lat: 47.182044, lon: 0.270448},
+        {name: "CHOLET", address: "ZI LEGERE 15 RUE DE LANGEAIS CHOLET", postalCode: "49300", city: "CHOLET", lat: 47.071979, lon: -0.857781},
+        {name: "CLAMART", address: "514 AVE DU GAL DE GAULLE", postalCode: "92140", city: "CLAMART", lat: 48.785292, lon: 2.251147},
+        {name: "CLAYE SOUILLY", address: "2 Rue Victor Baltard ZA de la Motte", postalCode: "77410", city: "CLAYE SOUILLY", lat: 48.947391, lon: 2.670996},
+        {name: "CLERMONT - FITZ", address: "RUE ST EXUPERY", postalCode: "60600", city: "FITZ-JAMES", lat: 49.396832, lon: 2.421884},
+        {name: "CLERMONT AUBIERE", address: "Ave Margeride CC AUCHAN", postalCode: "63170", city: "AUBIERE", lat: 45.759606, lon: 3.122838},
+        {name: "CLERMONT CLEMENTEL", address: "10 RUE ROBERT LEMOY", postalCode: "63100", city: "CLERMONT FERRAND", lat: 45.816981, lon: 3.1102},
+        {name: "CLERMONT FERRAND", address: "92 BLD GUSTAVE FLAUBERT", postalCode: "63000", city: "CLERMONT FERRAND", lat: 45.765213, lon: 3.125336},
+        {name: "CLERMONT L HERAULT", address: "10 RUE DU CHARDONNAY ZAC  DU PAVHE", postalCode: "34800", city: "CLERMONT L'HERAULT", lat: 43.621285, lon: 3.452338},
+        {name: "COGOLIN", address: "RN 98 CARREFOUR DE LA FOUX", postalCode: "83310", city: "COGOLIN", lat: 43.254076, lon: 6.557046},
+        {name: "COIGNIERES", address: "83 LIEUDIT PONT D'AULNEAU RN10", postalCode: "78310", city: "COIGNIERES", lat: 48.746856, lon: 1.924973},
+        {name: "COLMAR", address: "23 RUE STANISLAS", postalCode: "68000", city: "COLMAR", lat: 48.080776, lon: 7.352711},
+        {name: "COLMAR LIBERTE", address: "32 AVENUE DE LA FOIRE AUX VINS", postalCode: "68000", city: "COLMAR", lat: 48.106974, lon: 7.362483},
+        {name: "COLOMBIERS", address: "1 RUE DE L'ARTISANAT", postalCode: "34440", city: "COLOMBIERS", lat: 43.306875, lon: 3.169296},
+        {name: "COMPIEGNE VENETTE", address: "1 RUE DES METIERS", postalCode: "60280", city: "VENETTE", lat: 49.405956, lon: 2.784988},
+        {name: "CONCARNEAU", address: "15 rue Louis René Villerme", postalCode: "29900", city: "Concarneau", lat: 47.886771, lon: -3.912065},
+        {name: "CONDOM", address: "11 AVENUE DES ANCIENS COMBATTANTS D AFN ET DES TOE", postalCode: "32100", city: "CONDOM", lat: 43.957764, lon: 0.377996},
+        {name: "CONTREXEVILLE", address: "AV DIVISION LECLERC", postalCode: "88140", city: "CONTREXEVILLE", lat: 48.187457, lon: 5.893969},
+        {name: "CORBEIL ESSONNES", address: "2 AVENUE PAUL MAINTENANT", postalCode: "91100", city: "CORBEIL ESSONNES", lat: 48.614117, lon: 2.456433},
+        {name: "CORMONTREUIL", address: "22 RUE DES BLANCS MONTS", postalCode: "51350", city: "CORMONTREUIL", lat: 49.214971, lon: 4.056412},
+        {name: "COSNE COURS SUR LOIRE", address: "AVENUE DU 85 DE LIGNE", postalCode: "58200", city: "COSNE COURS SUR LOIRE", lat: 47.398878, lon: 2.922877},
+        {name: "COUDEKERQUE", address: "CENTRE COMMERCIAL CORA 61, RUE DU BOERNHOL", postalCode: "59210", city: "COUDEKERQUE", lat: 51.017112, lon: 2.382521},
+        {name: "COULOMMIERS", address: "RUE DES LONGS SILLONS ZA - RUE DE MONTIGNY", postalCode: "77120", city: "COULOMMIERS", lat: 48.807038, lon: 3.101585},
+        {name: "COURBEVOIE", address: "107 BLD DE LA MISSION MARCHAND", postalCode: "92400", city: "COURBEVOIE", lat: 48.898568, lon: 2.240333},
+        {name: "COURBEVOIE 2", address: "53-55 RUE DE L ALMA", postalCode: "92400", city: "COURBEVOIE", lat: 48.896845, lon: 2.254751},
+        {name: "COUTANCES", address: "2 av de Verdun", postalCode: "50200", city: "COUTANCES", lat: 49.038519, lon: -1.446094},
+        {name: "COUTRAS", address: "Rue François Mitterand", postalCode: "33230", city: "COUTRAS", lat: 45.047418, lon: -0.119869},
+        {name: "CRECHES SUR SAONE", address: "CC Carrefour Les Bouchardes", postalCode: "71680", city: "CRECHES-SUR-SAONE", lat: 46.250878, lon: 4.776045},
+        {name: "CREON", address: "ROUTE DE SAUVETERRE CC LA FERRIERE", postalCode: "33670", city: "CREON", lat: 44.772785, lon: -0.335313},
+        {name: "CRETEIL - POMPADOUR", address: "6 RUE DE LA HAUTE QUINTE", postalCode: "94000", city: "CRETEIL", lat: 48.773706, lon: 2.4407},
+        {name: "CRETEIL - UNIVERSITE", address: "63 AVENUE DU GENERAL DE GAULLE", postalCode: "94000", city: "CRETEIL", lat: 48.796223, lon: 2.448015},
+        {name: "CRETEIL 2", address: "1/3 rue fontaine St Christophe CC CASTORAMA", postalCode: "94000", city: "CRETEIL", lat: 48.794929, lon: 2.457514},
+        {name: "CREUTZWALD", address: "RUE DE SAINT FLOUR ZONE ARTISANALE", postalCode: "57150", city: "CREUTZWALD", lat: 49.189918, lon: 6.695359},
+        {name: "CROLLES", address: "28 rue Marcel Reynaud", postalCode: "38920", city: "CROLLES", lat: 45.275114, lon: 5.884791},
+        {name: "CUSSET", address: "24 RUE DES BARTINS", postalCode: "3300", city: "CUSSET", lat: 46.136635, lon: 3.428188},
+        {name: "DADONVILLE", address: "ESPACE CAL LES PORTES DU GÂTINAIS CARREFOUR DE LA GROUE", postalCode: "45300", city: "DADONVILLE", lat: 48.162378, lon: 2.259022},
+        {name: "DAMMARIE LES LYS", address: "Rue Léon Foucault CC Leclerc", postalCode: "77190", city: "DAMMARIE LES LYS", lat: 48.509376, lon: 2.606699},
+        {name: "DARDILLY", address: "8 ROUTE DU PAISY", postalCode: "69570", city: "DARDILLY", lat: 45.805421, lon: 4.767842},
+        {name: "DECIZE", address: "6 ROUTE DE CHAMPVERT", postalCode: "58300", city: "DECIZE", lat: 46.835283, lon: 3.467671},
+        {name: "DEVEZE BEZIERS", address: "1 AVENUE DE LA DEVEZE", postalCode: "34500", city: "BEZIERS", lat: 43.331163, lon: 3.241859},
+        {name: "DIEPPE", address: "AVENUE DES CANADIENS ZAC DU BELVEDERE", postalCode: "76200", city: "DIEPPE", lat: 49.914667, lon: 1.075005},
+{name: "DIGNE LES BAINS", address: "ZAC St Christophe 9 Rue Nicephore Niepce", postalCode: "4000", city: "DIGNE LES BAINS", lat: 44.078003, lon: 6.19371},
+        {name: "DIGOIN", address: "ZAC DES CHARMES", postalCode: "71160", city: "DIGOIN", lat: 46.477488, lon: 4.004323},
+        {name: "DIJON TOISON D'OR", address: "Avenue de Langre CC Toison d'Or", postalCode: "21000", city: "DIJON", lat: 47.331418, lon: 5.024892},
+        {name: "DINAN", address: "CC Leclerc", postalCode: "22100", city: "DINAN", lat: 48.456901, lon: -2.049812},
+        {name: "DINAN - TADEN", address: "ZONE COMMERCIALE CAP RANCE - INTERMARCHE LE PRE DES LANDES", postalCode: "22100", city: "TADEN", lat: 47.736999, lon: -3.225893},
+        {name: "DOLE", address: "Aux Epenottes CC Intermarché", postalCode: "39100", city: "DOLE", lat: 47.10917, lon: 5.508299},
+        {name: "DOLE CHOISEY", address: "RUE DE FOURNEY ZONE COMMERCIALE DE CORA", postalCode: "39100", city: "CHOISEY", lat: 47.067212, lon: 5.455182},
+        {name: "DOMERAT", address: "73 AVE DES MARTYRS", postalCode: "3410", city: "DOMERAT", lat: 46.337912, lon: 2.56182},
+        {name: "DOUAI", address: "36 Route Nationale 43 Le Raquet", postalCode: "59552", city: "LAMBRES-LES-DOUAI", lat: 50.346697, lon: 3.088728},
+        {name: "DOUARNENEZ", address: "4, RUE ETIENNE KERNOURS", postalCode: "29100", city: "DOUARNENEZ", lat: 48.080938, lon: -4.327935},
+        {name: "DOULLENS", address: "36 RUE HENRI DUNANT", postalCode: "80600", city: "DOULLENS", lat: 50.159822, lon: 2.344981},
+        {name: "DREUX", address: "4 RUE  FACEL VEGA", postalCode: "28100", city: "DREUX", lat: 48.751323, lon: 1.35494},
+        {name: "DREUX VERNOUILLET", address: "RUR DE ROME CC PLEIN SUD", postalCode: "28500", city: "VERNOUILLET", lat: 48.718081, lon: 1.37214},
+        {name: "DUNKERQUE", address: "AVENUE MAURICE BERTAUX", postalCode: "59430", city: "DUNKERQUE", lat: 51.032577, lon: 2.349013},
+        {name: "ECHIROLLES", address: "23, av Salvador ALLENDE", postalCode: "38130", city: "ECHIROLLES", lat: 45.157102, lon: 5.725502},
+        {name: "ENGLOS HAUBOURDIN", address: "CC AUCHAN ENGLOS LES GEANTS", postalCode: "59320", city: "HAUBOURDIN", lat: 50.612973, lon: 2.972089},
+        {name: "EPAGNY", address: "Centre Cial Auchan Le Grand Epagny", postalCode: "74330", city: "EPAGNY", lat: 45.935374, lon: 6.090175},
+        {name: "EPERNAY", address: "13 BD DE LA MOTTE", postalCode: "51200", city: "EPERNAY", lat: 49.046271, lon: 3.956749},
+        {name: "EPERNAY DIZY", address: "Route de Culières CC Les Bas Jardins", postalCode: "51530", city: "DIZY", lat: 49.062939, lon: 3.961028},
+        {name: "EPINAL JEUXEY", address: "RUE SAUT LE CERF CC CARREFOUR", postalCode: "88000", city: "JEUXEY", lat: 48.201509, lon: 6.481598},
+        {name: "EPINAY ALLENDE", address: "15-19, AVE SALVADOR ALLENDE", postalCode: "93800", city: "EPINAY SUR SEINE", lat: 48.956238, lon: 2.308686},
+        {name: "EPINAY SUR ORGE", address: "ROUTE DE CORBEIL RD257", postalCode: "91360", city: "EPINAY SUR ORGE", lat: 48.67025, lon: 2.332358},
+        {name: "EPINAY SUR SEINE", address: "57-65 AVENUE JOFFRE", postalCode: "93800", city: "EPINAY SUR SEINE", lat: 48.959838, lon: 2.298379},
+        {name: "EPONE", address: "ROUTE DE GARGENVILLE", postalCode: "78680", city: "EPONE", lat: 48.97041, lon: 1.808974},
+        {name: "ESBLY", address: "2 AVENUE DE CHARLES DE GAULLES", postalCode: "77450", city: "ESBLY", lat: 48.899684, lon: 2.81096},
+        {name: "ESSEY LES NANCY", address: "ZAC DU TRONC QUI FUME 2 RUE EDITH PIAF", postalCode: "54270", city: "ESSEY LES NANCY", lat: 48.708113, lon: 6.240441},
+        {name: "ETAMPES", address: "RUE DES EPINANTS ZAC DU BOIS BOURDON", postalCode: "91150", city: "ETAMPES", lat: 48.442272, lon: 2.145995},
+        {name: "EVREUX", address: "2 RUE JEAN MOULIN", postalCode: "27000", city: "EVREUX", lat: 49.01834, lon: 1.154337},
+        {name: "FACHE THUMESNIL", address: "CENTRE NORAUTO RUE DE L'EGALITE CENTRE COMMERCIAL AUCHAN", postalCode: "59155", city: "FACHES-THUMESNIL", lat: 50.585336, lon: 3.085134},
+        {name: "FECAMP ST LEONARD", address: "291 ROUTE DU HAVRE", postalCode: "76400", city: "ST LEONARD FECAMP", lat: 49.74134, lon: 0.369895},
+        {name: "FERRIERES D'AUNIS", address: "RUE DE LA JUILLERIE", postalCode: "17170", city: "FERRIERES D'AUNIS", lat: 46.227171, lon: -0.861324},
+        {name: "FERRIERES EN BRAY", address: "ROUTE DE BEAUVAIS", postalCode: "76220", city: "FERRIERES EN BRAY", lat: 49.475298, lon: 1.743879},
+        {name: "FEURS", address: "ROUTE DE SAINT-ETIENNE", postalCode: "42110", city: "FEURS", lat: 45.731686, lon: 4.225244},
+        {name: "FIGEAC", address: "8 RUE SAINTE-MARTHE", postalCode: "46100", city: "FIGEAC", lat: 44.608694, lon: 2.029443},
+        {name: "FIRMINY", address: "RUE DE CHAZEAU", postalCode: "42700", city: "FIRMINY", lat: 45.375409, lon: 4.277591},
+        {name: "FLERS", address: "ZONE ACTIVITES COMMERCIALES LES GRANDS RUE ARISTIDE BOUCICAUT", postalCode: "61100", city: "FLERS", lat: 48.726932, lon: -0.582092},
+        {name: "FLINS", address: "ROUTE DEPARTEMENTALE 14", postalCode: "78410", city: "FLINS", lat: 48.967653, lon: 1.870474},
+        {name: "FONTAINE LES DIJON", address: "BLD DES ALLOBROGES", postalCode: "21121", city: "FONTAINE LES DIJON", lat: 47.337545, lon: 5.035163},
+        {name: "FONTENAY LE COMTE", address: "19 RUE LOUIS AUBER ZONE COMMERCIALE HYPER U", postalCode: "85200", city: "FONTENAY LE COMTE", lat: 48.403637, lon: 0.090952},
+        {name: "FORBACH", address: "RUE EMILE GALLE CD 31 ZI DU CARREFOUR DE L'EUROPE", postalCode: "57600", city: "FORBACH", lat: 49.178813, lon: 6.880798},
+        {name: "FOUESNANT", address: "7 ROUTE DE QUIMPER POLE COMMERCIAL CASCADE", postalCode: "29170", city: "FOUESNANT", lat: 47.900448, lon: -4.023067},
+        {name: "FOUGERESPP", address: "ZAC DE LA GUENAUDIERE RUE AUGUSTIN FRESNEL", postalCode: "35300", city: "FOUGERES", lat: 48.348967, lon: -1.174899},
+        {name: "FOURMIES", address: "PLACE ALFRED DERIGNY", postalCode: "59610", city: "FOURMIES", lat: 50.017148, lon: 4.039872},
+        {name: "FREJUS", address: "ZONE CAPITOU NORD 357 AVENUE DES LIONS", postalCode: "83600", city: "FREJUS", lat: 43.471992, lon: 6.73718},
+        {name: "FREPILLON", address: "14 AVENUE DU GENERAL DE GAULLE", postalCode: "95740", city: "FREPILLON", lat: 49.048231, lon: 2.201529},
+        {name: "GAILLAC", address: "ROUTE DE SAURS ZONE COMMERCIALE E.LECLERC", postalCode: "81600", city: "GAILLAC", lat: 43.889583, lon: 1.862436},
+        {name: "GAP", address: "ROUTE DES FAUVINS ZA DES FAUVINS", postalCode: "5000", city: "GAP", lat: 44.563676, lon: 6.105156},
+        {name: "GARDANNE", address: "BRETELLE DE LA PLAINE", postalCode: "13120", city: "GARDANNE", lat: 43.448981, lon: 5.458532},
+        {name: "GARGES LES GONESSE", address: "1, rue Jacques Anquetil", postalCode: "95140", city: "GARGES", lat: 48.961478, lon: 2.400579},
+        {name: "GAZERAN", address: "Rue Marcel Dassault Le Brayphin", postalCode: "78125", city: "GAZERAN", lat: 48.627759, lon: 1.822087},
+        {name: "GEISPOLSHEIM", address: "4 RUE DU FORT", postalCode: "67118", city: "GEISPOLSHEIM", lat: 48.523549, lon: 7.694107},
+        {name: "GIEN", address: "61 ROUTE D ORLEANS", postalCode: "45500", city: "GIEN", lat: 47.694815, lon: 2.613477},
+        {name: "GIVET", address: "ROUTE DE BEAURAING", postalCode: "8600", city: "GIVET", lat: 50.133523, lon: 4.850093},
+        {name: "GIVORS", address: "65, RUE JEAN LIGONNET", postalCode: "69700", city: "GIVORS", lat: 45.59397, lon: 4.769907},
+        {name: "GLISY", address: "8 AVENUE PHILEAS FOGG POLE JULES VERNE", postalCode: "80440", city: "GLISY", lat: 49.866654, lon: 2.378968},
+        {name: "GOLBEY", address: "66 RUE DE LORRAINE", postalCode: "88190", city: "GOLBEY", lat: 48.210542, lon: 6.440796},
+        {name: "GONESSE", address: "23 AVENUE GABRIEL PERI", postalCode: "95500", city: "GONESSE", lat: 48.991832, lon: 2.429705},
+        {name: "GOURDON", address: "90 ROUTE DE MACON", postalCode: "71300", city: "GOURDON", lat: 46.664336, lon: 4.39286},
+        {name: "GOUSSAINVILLE", address: "32/38 AV DE LA GARE", postalCode: "95190", city: "GOUSSAINVILLE", lat: 49.015762, lon: 2.470278},
+        {name: "GRADIGNAN", address: "62 COURS DU GENERAL DE GAULLE", postalCode: "33170", city: "GRADIGNAN", lat: 44.777222, lon: -0.610449},
+        {name: "GRANDE SYNTHE", address: "CENTRE COMMERCIAL AUCHAN", postalCode: "59760", city: "GRANDE SYNTHE", lat: 51.005431, lon: 2.284647},
+        {name: "GRANVILLE", address: "ROUTE DE VILLEDIEU", postalCode: "50400", city: "GRANVILLE", lat: 48.837571, lon: -1.547495},
+        {name: "GRASSE", address: "14 BLD DU MARECHAL LECLERC", postalCode: "6130", city: "GRASSE", lat: 43.649748, lon: 6.919821},
+       {name: "GRAY", address: "ZAC GRAY SUD RUE PICARD", postalCode: "70100", city: "ARC LES GRAY", lat: 47.436539, lon: 5.602938},
+        {name: "GRENOBLE SASSENAGE", address: "10 av de Romans", postalCode: "38360", city: "SASSENAGE", lat: 45.199592, lon: 5.669905},
+        {name: "GRENOBLE ST EGREVE", address: "CC CAP 38 ZA des Isles", postalCode: "38120", city: "ST EGREVE", lat: 45.22565, lon: 5.686427},
+        {name: "GRIGNY", address: "ZA la plaine basse", postalCode: "91350", city: "GRIGNY", lat: 48.666511, lon: 2.403015},
+        {name: "GRUCHET LE VALASSE", address: "5 RUE DE L'ABBAYE", postalCode: "76210", city: "GRUCHET LE VALASSE", lat: 49.547442, lon: 0.494419},
+        {name: "GUERET", address: "RUE ALEXANDRE GUILLON", postalCode: "23000", city: "GUERET", lat: 46.170473, lon: 1.884915},
+        {name: "GUICHAINVILLE", address: "RUE DES CARAVELLES ZI DE LA GARENNE", postalCode: "27930", city: "GUICHAINVILLE", lat: 49.008825, lon: 1.171905},
+        {name: "GUILERS", address: "ZAC de Kerebars", postalCode: "29820", city: "GUILERS", lat: 48.425084, lon: -4.576267},
+        {name: "GUILHERAND", address: "Ave de la République CC  Porte de l Ardèche", postalCode: "7500", city: "GUILHERAND GRANGES", lat: 44.936235, lon: 4.872801},
+        {name: "GUINGAMPPP", address: "4 RUE SAINT JULIEN", postalCode: "22200", city: "GUINGAMP", lat: 48.556821, lon: -3.13976},
+        {name: "GUJAN MESTRAS", address: "Avenue de Césarée", postalCode: "33470", city: "GUJAN MESTRAS", lat: 44.625557, lon: -1.072628},
+        {name: "HAGETMAU", address: "ROUTE D'ORTHEZ", postalCode: "40700", city: "HAGETMAU", lat: 43.64451, lon: -0.607246},
+        {name: "HAGUENAU", address: "26 RTE DE STRASBOURG", postalCode: "67500", city: "HAGUENAU", lat: 48.808069, lon: 7.777429},
+        {name: "HARNES", address: "199 ROUTE DE LILLE RN17", postalCode: "62440", city: "HARNES", lat: 50.449199, lon: 2.867721},
+        {name: "HAUDAINVILLE", address: "7, Boulevard de L'Europe", postalCode: "55100", city: "HAUDAINVILLE", lat: 49.140678, lon: 5.40906},
+        {name: "HAULCHIN", address: "RN 30", postalCode: "59121", city: "HAULCHIN", lat: 50.315825, lon: 3.433513},
+        {name: "HAZEBROUCK", address: "85 PARC D'ACTIVITÉ DE LA CREULE", postalCode: "59190", city: "HAZEBROUCK", lat: 50.738856, lon: 2.54844},
+        {name: "HEM", address: "188 AV DU GENERAL DE GAULLE", postalCode: "59510", city: "HEM", lat: 50.805533, lon: 2.047855},
+        {name: "HERBLAY", address: "18 RUE PAUL LANGEVIN ZAE D'HERBLAY", postalCode: "95220", city: "HERBLAY", lat: 49.006635, lon: 2.168254},
+        {name: "HERLIN LE SEC", address: "RUE DE ST MICHEL", postalCode: "62120", city: "HERLIN LE SEC", lat: 50.363191, lon: 2.335382},
+        {name: "HOUILLES", address: "136 BOULEVARD HENRI BARBUSSE", postalCode: "78800", city: "HOUILLES", lat: 48.932995, lon: 2.180845},
+        {name: "HOUSSEN COLMAR", address: "ZONE COMMERCIALE DU BUHLFELD", postalCode: "68125", city: "HOUSSEN", lat: 48.125093, lon: 7.368966},
+        {name: "I.S.P.", address: "107 BD DE LA MISSION MARCHAND", postalCode: "92411", city: "COURBEVOIE CEDEX", lat: 48.901723, lon: 2.239451},
+        {name: "IFS", address: "389 ROUTE DE CAEN RN 158", postalCode: "14123", city: "IFS", lat: 49.156163, lon: -0.345097},
+        {name: "ILLKIRCH", address: "ROUTE DE STRASBOURG", postalCode: "67400", city: "ILLKIRCH-GRAFFENSTADEN", lat: 48.541887, lon: 7.735049},
+        {name: "ILLZACH", address: "CC Des 3 Frontières", postalCode: "68110", city: "ILLZACH", lat: 47.772099, lon: 7.390301},
+        {name: "ISSOIRE", address: "6 RUE YVES LAMOURDEDIEU", postalCode: "63500", city: "ISSOIRE", lat: 45.552769, lon: 3.256344},
+        {name: "ISTRES", address: "1 avenue Clément Ader", postalCode: "13800", city: "ISTRES", lat: 43.518709, lon: 4.960075},
+        {name: "IVRY SUR SEINE", address: "170-180 BLD DE STALINGRAD", postalCode: "94200", city: "IVRY SUR SEINE", lat: 48.804392, lon: 2.377251},
+        {name: "JARNY - CONFLANS", address: "Route de Jeandelize Zone Artisanale Val de l¿Orne", postalCode: "54800", city: "CONFLANS-EN-JARNISY", lat: 49.164732, lon: 5.844521},
+        {name: "JONZAC", address: "AVE MONSEIGNEUR CHAUVIN ZAC AU PLAISIR", postalCode: "17500", city: "JONZAC", lat: 45.452215, lon: -0.439625},
+        {name: "JOUE LES TOURS", address: "CC LECLERC Les Bercelleries", postalCode: "37300", city: "JOUE LES TOURS", lat: 47.32749, lon: 0.664381},
+        {name: "L ISLE JOURDAIN", address: "RUE COLETTE BESSON ZAC PONT PEYRIN 2", postalCode: "32600", city: "L ISLE JOURDAIN", lat: 43.60159, lon: 1.070418},
+        {name: "LA CHAPELLE ST AUBIN", address: "ZI NORD DU CHAMP FLEURI RUE ALBERT DE DION", postalCode: "72650", city: "LA CHAPELLE SAINT AUBIN", lat: 48.036246, lon: 0.17459},
+        {name: "LA CHAPELLE SUR ERDRE", address: "CC Viv'Erdre La Berangerais", postalCode: "44240", city: "LA CHAPELLE SUR ERDRE", lat: 47.281949, lon: -1.539834},
+        {name: "LA CHATRE", address: "32 RUE DES CROSSES ZONE COMMERCIALE SUPER U", postalCode: "36400", city: "LA CHATRE", lat: 46.579693, lon: 2.001763},
+        {name: "LA CHAUSSEE ST VICTOR", address: "CENTRE COMMERCIAL CARREFOUR MARKET ROUTE NATIONAL", postalCode: "41260", city: "LA CHAUSSEE ST VICTOR", lat: 47.611521, lon: 1.358978},
+        {name: "LA CIOTAT", address: "67 AVENUE DU JUJUBIER ZONE ATHELIA IV", postalCode: "13600", city: "LA CIOTAT", lat: 43.203882, lon: 5.598252},
+        {name: "LA COTE ST ANDRE", address: "75 AVENUE HECTOR BERLIOZ", postalCode: "38260", city: "LA COTE ST ANDRE", lat: 45.380812, lon: 5.26266},
+        {name: "LA FERTE BERNARD", address: "EUROMASTER ZA LA PETITE CIBOLE", postalCode: "72400", city: "LA FERTE BERNARD", lat: 48.198507, lon: 0.62077},
+        {name: "LA FLECHE", address: "Avenue Rhin et Danube", postalCode: "72200", city: "LA FLECHE", lat: 47.703596, lon: -0.092628},
+        {name: "LA MURE", address: "ZI Les Marais", postalCode: "38350", city: "LA MURE D'ISERE", lat: 0, lon: 0},
+        {name: "LA QUEUE EN BRIE", address: "CC du Moulin de Champlain", postalCode: "94510", city: "LA QUEUE EN BRIE", lat: 48.788689, lon: 2.563853},
+        {name: "LA QUEUE LEZ YVELINES", address: "ZI LES CROIX", postalCode: "78940", city: "LA QUEUE LEZ YVELINES", lat: 48.80311, lon: 1.780628},
+        {name: "LA RAVOIRE", address: "RN 6 CARREFOUR LA TROUSSE", postalCode: "73490", city: "LA RAVOIRE", lat: 45.571079, lon: 5.968279},
+        {name: "LA ROCHE SUR YON", address: "16, RUE ANITA CONTI", postalCode: "85000", city: "LA ROCHE SUR YON", lat: 46.695403, lon: -1.427411},
+        {name: "LA ROCHELLE", address: "155 BLD ANDRE SAUTEL", postalCode: "17000", city: "LA ROCHELLE", lat: 46.168859, lon: -1.130046},
+        {name: "LA RODE TOULON", address: "322 AV.LE BELLEGOU RODE", postalCode: "83000", city: "TOULON", lat: 43.117214, lon: 5.940956},
+        {name: "LA SEYNE SUR MER", address: "415 CHEMIN DES CRÊTES FABREGAS", postalCode: "83500", city: "LA SEYNE-SUR-MER", lat: 43.068763, lon: 5.867167},
+        {name: "LA SEYNE SUR MER", address: "278 BD MARECHAL JUIN", postalCode: "83500", city: "LA SEYNE SUR MER", lat: 43.107828, lon: 5.867691},
+        {name: "LA VALETTE DU VAR", address: "AVENUE DE L¿UNIVERSITÉ QUARTIER DES ESPALUNS", postalCode: "83160", city: "LA VALETTE DU VAR", lat: 43.136872, lon: 6.006115},
+        {name: "LA VILLE AUX DAMES", address: "CC Leclerc ZAC des Fougerolles", postalCode: "37700", city: "LA VILLE AUX DAMES", lat: 47.400008, lon: 0.755876},
+        {name: "LA VILLE DU BOIS", address: "RN 20 CC Carrefour", postalCode: "91620", city: "LA VILLE DU BOIS", lat: 48.676623, lon: 2.282085},
+        {name: "LABENNE", address: "40 AVE DU GENERAL DE GAULLE", postalCode: "40530", city: "LABENNE", lat: 43.590108, lon: -1.427615},
+        {name: "LAGNY SUR MARNE", address: "7 AVENUE GEORGES CLEMENCEAU", postalCode: "77400", city: "LAGNY SUR MARNE", lat: 48.877532, lon: 2.729399},
+        {name: "L'AIGLE ST SULPICE", address: "46 ANGLURES CELLULE B ROUTE NATIONALE 26", postalCode: "61300", city: "SAINT SULPICE SUR RISLE", lat: 48.761932, lon: 0.647235},
+        {name: "LAMBERSART", address: "510 AVE DE DUNKERQUE", postalCode: "59130", city: "LAMBERSART", lat: 50.639391, lon: 3.020455},
+        {name: "LAMPERTHEIM", address: "5 RUE DU CHEMIN DE FER", postalCode: "67450", city: "LAMPERTHEIM", lat: 48.653663, lon: 7.722187},
+        {name: "LANCON PROVENCE", address: "AIRE DE LANCON OUEST A7", postalCode: "13680", city: "LANCON PROVENCE", lat: 43.590781, lon: 5.127165},
+        {name: "LANDIVISIAU", address: "31 RUE DE LA TOUR D AUVERGNE", postalCode: "29400", city: "LANDIVISIAU", lat: 48.507913, lon: -4.072683},
+        {name: "LANGON", address: "16 ROUTE DE BORDEAUX", postalCode: "33210", city: "LANGON", lat: 44.557087, lon: -0.254818},
+        {name: "LANGRES", address: "450 IMPASSE DES TILLEULS", postalCode: "52200", city: "SAINTS GEOSMES", lat: 47.837506, lon: 5.330682},
+        {name: "LANNION", address: "RUE ROBERT SURCOUF", postalCode: "22300", city: "LANNION", lat: 48.749404, lon: -3.461836},   
+ 	{name: "LAON", address: "49 RUE ROMANETTE", postalCode: "2000", city: "LAON", lat: 49.550043, lon: 3.613985},
+        {name: "L'ARBRESLE (SAIN BEL)", address: "PLACE DES TROIS COMMUNES", postalCode: "69210", city: "L'ARBRESLE (SAIN BEL)", lat: 45.822948, lon: 4.605386},
+        {name: "LAVAL", address: "45 BLD DU 8 MAI 1945", postalCode: "53000", city: "LAVAL", lat: 48.062515, lon: -0.785608},
+        {name: "LAVAL LA MAYENNE", address: "Avenue de Lattre de Tassigny CC LA MAYENNE", postalCode: "53000", city: "LAVAL", lat: 48.078218, lon: -0.799996},
+        {name: "LAVAL LES BOZEES", address: "CC Leclerc ZA les Bozées", postalCode: "53000", city: "LAVAL", lat: 48.074303, lon: -0.758859},
+        {name: "LAXOU", address: "22 RUE DE LA SAPINIERE", postalCode: "54520", city: "LAXOU", lat: 48.691936, lon: 6.12834},
+        {name: "LE BLANC MESNIL", address: "140 AVENUE DE LA REPUBLIQUE", postalCode: "93150", city: "LE BLANC MESNIL", lat: 48.935189, lon: 2.473222},
+        {name: "LE CATEAU CAMBRESIS", address: "37 RUE MARECHAL DE LATTRE DE TASSIGNY INTERMARCHE", postalCode: "59360", city: "LE CATEAU CAMBRESIS", lat: 50.094508, lon: 3.536912},
+        {name: "LE CRES", address: "RUE DE LA POULAILLERE", postalCode: "34920", city: "LE CRES", lat: 43.645019, lon: 3.940664},
+        {name: "LE HAILLAN", address: "5 AVENUE DE MAGUDAS ROND-POINT DES 5 CHEMINS", postalCode: "33185", city: "LE HAILLAN", lat: 44.858728, lon: -0.682333},
+        {name: "LE HAVRE", address: "111 / 113 COURS DE LA REPUBLIQUE", postalCode: "76600", city: "LE HAVRE", lat: 49.497347, lon: 0.12753},
+        {name: "LE HAVRE MONT GAILLARD", address: "91, Avenue du Grand Hameau", postalCode: "76620", city: "LE HAVRE", lat: 49.521188, lon: 0.108828},
+        {name: "LE MANS", address: "108 AVE FELIX GENESLAY", postalCode: "72100", city: "LE MANS", lat: 47.970739, lon: 0.204627},
+        {name: "LE MANS SUD", address: "AV GEORGE DURAND ZA DE VAUGUYON", postalCode: "72100", city: "LE MANS", lat: 47.973195, lon: 0.216225},
+        {name: "LE MESNIL ESNARD", address: "37 ROUTE DE PARIS", postalCode: "76240", city: "LE MESNIL ESNARD", lat: 49.4067, lon: 1.149079},
+        {name: "LE MESNIL LE ROI", address: "101 AVENUE DE POISSY RN 306", postalCode: "78600", city: "LE MESNIL LE ROI", lat: 48.943322, lon: 2.129066},
+        {name: "LE PUY EN VELAY", address: "ZC DU CHIREL LES PORTES OCCITANES", postalCode: "43000", city: "LE PUY EN VELAY", lat: 45.02511, lon: 3.882218},
+        {name: "LE PUY EN VELAY", address: "BLD MARECHAL JOFFRE", postalCode: "43000", city: "LE PUY EN VELAY", lat: 45.048268, lon: 3.893573},
+        {name: "LE QUESNOY", address: "PARC NATUREL RÉGIONAL DE L'AVESNOIS D934, CC LES PORTES DE L'AVESNOIS LES PRÉS DU ROY", postalCode: "59530", city: "LE QUESNOY", lat: 45.583744, lon: 0.762091},
+        {name: "LE VIGAN", address: "QUARTIER DE TESSAN", postalCode: "30120", city: "LE VIGAN", lat: 43.992, lon: 3.620673},
+        {name: "LECOUSSE", address: "7 RUE MARION DE FAOUET", postalCode: "35133", city: "LECOUSSE", lat: 48.351873, lon: -1.224156},
+        {name: "LEERS", address: "CENTRE COMMERCIAL AUCHAN 22 AVENUE DE L EUROPE", postalCode: "59115", city: "LEERS", lat: 50.682157, lon: 3.222418},
+        {name: "LEMPDES", address: "RUE DE LA ROCHELLE", postalCode: "63370", city: "LEMPDES", lat: 45.780043, lon: 3.199868},
+        {name: "LENS", address: "CENTRE COMMERCIAL LENS 2", postalCode: "62880", city: "VENDIN LE VIEIL", lat: 50.459469, lon: 2.828761},
+        {name: "LES ANGLES", address: "1 AVENUE DE TAVEL CC GRAND ANGLES", postalCode: "30133", city: "LES ANGLES", lat: 43.960659, lon: 4.749515},
+        {name: "LES ARCS SUR ARGENS", address: "CC Hyper U Espace Dracennie", postalCode: "83460", city: "LES ARCS SUR ARGENS", lat: 43.445485, lon: 6.469227},
+        {name: "LES HERBIERS", address: "ZAC QUATOR ZONE COMMERCIALE DE LA  TIBOURGERE", postalCode: "85500", city: "LES HERBIERS", lat: 46.882496, lon: -1.014275},
+        {name: "LES ISSAMBRES", address: "5308 RD 559 SAN PEIRE", postalCode: "83380", city: "LES ISSAMBRES", lat: 43.372078, lon: 6.71156},
+        {name: "LES MUREAUX", address: "RUE LES PLIADES ZA DU GRAND OUEST", postalCode: "78130", city: "LES MUREAUX", lat: 48.975536, lon: 1.912462},
+        {name: "LES ROUSSES", address: "ROUTE BLANCHE RN5", postalCode: "39220", city: "LES ROUSSES", lat: 46.476753, lon: 6.065029},
+        {name: "LES SABLES D OLONNE", address: "73 RUE DU 8 MAI 1945", postalCode: "85340", city: "LES SABLES D OLONNE", lat: 46.543515, lon: -1.77179},
+        {name: "LES ULIS", address: "1 AVENUE DE L'OCEANIE ZAC COURTABOEUF", postalCode: "91940", city: "LES ULIS", lat: 48.677508, lon: 2.19747},
+        {name: "LES VOIRONS ANNEMASSE", address: "81 ROUTE DE THONON", postalCode: "74100", city: "ANNEMASSE", lat: 46.195576, lon: 6.261363},
+        {name: "LESPARRE MEDOC", address: "61 COURS DU GENERAL DE GAULLE", postalCode: "33340", city: "LESPARRE MEDOC", lat: 45.310097, lon: -0.939589},
+        {name: "LIBOURNE", address: "153 AVE GENERAL DE GAULLE", postalCode: "33500", city: "LIBOURNE", lat: 44.902598, lon: -0.220441},
+        {name: "LIEVIN", address: "Centre Commercial Carrefour Rue Bernard Chochoy", postalCode: "62800", city: "LIEVIN", lat: 48.501788, lon: 2.58266},
+        {name: "LILLE LOOS", address: "92, rue Georges Potié", postalCode: "59120", city: "LILLE LOOS", lat: 50.612836, lon: 3.00248},
+        {name: "LILLEBONNE", address: "RUE DESGENETAIS", postalCode: "76170", city: "LILLEBONNE", lat: 49.522021, lon: 0.531703},
+        {name: "LIMEIL BREVANNES", address: "1 BIS AV GABRIEL PERI", postalCode: "94450", city: "LIMEIL BREVANNES", lat: 48.754431, lon: 2.484845},
+        {name: "LIMOGES", address: "314 RUE DE TOULOUSE", postalCode: "87000", city: "LIMOGES", lat: 45.80956, lon: 1.285397},
+        {name: "LIMOGES LE VIGEN", address: "CC BOISSEUIL LOT DE LA TOUR", postalCode: "87110", city: "LE VIGEN", lat: 45.770227, lon: 1.290977},
+        {name: "LIMOGES NORD", address: "CC CORA zone Beaubreuil", postalCode: "87280", city: "LIMOGES", lat: 45.880388, lon: 1.292241},
+        {name: "LIMONEST", address: "ZA SANS SOUCI RN 6", postalCode: "69760", city: "LIMONEST", lat: 45.808577, lon: 4.776463},
+        {name: "LISIEUX", address: "31 BD ST ANNE", postalCode: "14100", city: "LISIEUX", lat: 49.14264, lon: 0.225135},
+        {name: "LIVRY GARGAN", address: "68 AVENUE ARISTIDE BRIAND", postalCode: "93190", city: "LIVRY GARGAN", lat: 48.914461, lon: 2.527166},
+        {name: "LOCHES", address: "24 RUE DES LEZARDS", postalCode: "37600", city: "LOCHES", lat: 47.130739, lon: 0.984436},
+        {name: "LONGPONT SUR ORGE", address: "58 BIS AVE DIVISION LECLERC RN 20 LIEUDIT GRANDS ECHASSONS", postalCode: "91310", city: "LONGPONT SUR ORGE", lat: 48.658039, lon: 2.275926},
+        {name: "LONS LE SAUNIER", address: "85 RUE DES SALINES", postalCode: "39000", city: "LONS LE SAUNIER", lat: 46.673091, lon: 5.544614},
+        {name: "LORIENT", address: "18 Avenue Raymond Queudet ZAC de Bourgneuf", postalCode: "56100", city: "LORIENT", lat: 47.760654, lon: -3.394071},
+        {name: "LORIENT KERYADO", address: "Allée du Kerlétu CC CARREFOUR", postalCode: "56100", city: "LORIENT", lat: 47.770656, lon: -3.398575},
+        {name: "LORIENT LANESTER", address: "CC CASINO ZI de Lanester", postalCode: "56600", city: "LANESTER", lat: 47.751154, lon: -3.324106},
+        {name: "LORIOL", address: "PARC DES CROZES", postalCode: "26270", city: "LORIOL", lat: 44.758818, lon: 4.834768},
+        {name: "LOUDEAC", address: "68 BD DE PENTHIÈVRE", postalCode: "22600", city: "LOUDEAC", lat: 48.18995, lon: -2.755656},
+        {name: "LOURDES", address: "25  BOULEVARD DE LAPACCA", postalCode: "65100", city: "LOURDES", lat: 43.096912, lon: -0.038178},
+        {name: "LOUVIERS", address: "17 Boulevard du Docteur Postel", postalCode: "27400", city: "LOUVIERS", lat: 49.210404, lon: 1.172788},
+        {name: "LOUVROIL", address: "CENTRE COMMERCIAL AUCHAN RUE DE L ESPERANCE", postalCode: "59720", city: "LOUVROIL", lat: 50.255779, lon: 3.936533},
+        {name: "LUCE", address: "1 RUE DE LA MOTTE ZA LES MAL BROSSES", postalCode: "28110", city: "LUCE", lat: 0, lon: 0},
+        {name: "LUCON", address: "6, RUE EMILE GIRARDEAU", postalCode: "85400", city: "LUCON", lat: 46.461106, lon: -1.138133},
+        {name: "LUNEL", address: "ZA LUNELAND 188 RUE DE L'INDUSTRIE", postalCode: "34400", city: "LUNEL", lat: 43.677895, lon: 4.119486},
+        {name: "LUNEVILLE", address: "ZONE COMMERCIALE CORA 5, RUE DU SAULCY", postalCode: "54300", city: "MONCEL LES LUNEVILLE", lat: 48.577551, lon: 6.517727},
+        {name: "LURE", address: "ZAC DES CLOYES 14 RUE DES PLATANES", postalCode: "70200", city: "LURE", lat: 47.684035, lon: 6.519369},
+        {name: "LUXEUIL", address: "31, rue des Martyrs de la Résistance", postalCode: "70300", city: "LUXEUIL LES BAINS", lat: 47.82263, lon: 6.387463},
+	 {name: "LYON CALUIRE", address: "96 Avenue du Général Leclerc", postalCode: "69300", city: "CALUIRE-ET-CUIRE", lat: 45.80633, lon: 4.867481},
+        {name: "MACON", address: "70 RTE DE LYON", postalCode: "71000", city: "MACON", lat: 46.29089, lon: 4.813263},
+        {name: "MAGNANVILLE", address: "30 rue de L Ouest", postalCode: "78200", city: "MAGNANVILLE", lat: 48.97864, lon: 1.687823},
+        {name: "MALEMORT", address: "AVE LEONCE BORLIAQUET ZAC DU MOULIN", postalCode: "19360", city: "MALEMORT", lat: 45.180703, lon: 1.590994},
+        {name: "MANOSQUE", address: "AVE DU PREMIER MAI ZI SAINT JOSEPH", postalCode: "4100", city: "MANOSQUE", lat: 43.821731, lon: 5.797706},
+        {name: "MANTES LA VILLE", address: "CC AUCHAN BUCHELAY", postalCode: "78200", city: "MANTES LA VILLE", lat: 48.993452, lon: 1.687318},
+        {name: "MARCONNE STE AUSTREBERTHE", address: "ROUTE DEPARTEMENTALE 928 PARC DU CHAMP SAINTE MARIE", postalCode: "62140", city: "SAINTE-AUSTREBERTHE", lat: 50.363997, lon: 2.035515},
+        {name: "MARCQ LA PILATERIE", address: "395 Rue du Général de Gaulle", postalCode: "59700", city: "MARCQ EN BAROEUL", lat: 50.648258, lon: 3.117273},
+        {name: "MARCQ PROS UNIQUEMENT", address: "Zone de la Pilaterie 395 Avenue du General de Gaulle", postalCode: "59700", city: "MARCQ EN BAROEUL", lat: 50.648258, lon: 3.117273},
+        {name: "MARIGNANE", address: "AVENUE DU 8 MAI 1945", postalCode: "13700", city: "MARIGNANE", lat: 43.411534, lon: 5.218222},
+        {name: "MARMANDE", address: "58 AV HUBERT RUFFE", postalCode: "47200", city: "MARMANDE", lat: 44.488792, lon: 0.178758},
+        {name: "MARQUETTE LEZ LILLE", address: "ZAC DU HAUT TOUQUET 7 RUE DES MOISSONS", postalCode: "59520", city: "MARQUETTE LEZ LILLE", lat: 50.681432, lon: 3.064499},
+        {name: "MARSEILLE LA VALENTINE", address: "111 TRAVERSE DE LA MONTRE", postalCode: "13011", city: "MARSEILLE", lat: 43.298116, lon: 5.47639},
+        {name: "MARSEILLE LAUZE", address: "359 Bld Mireille Lauze", postalCode: "13011", city: "MARSEILLE", lat: 43.287314, lon: 5.43243},
+        {name: "MARSEILLE LOUBIERE", address: "75 CHEMIN DE CHATEAU GOMBERT", postalCode: "13013", city: "MARSEILLE", lat: 43.338321, lon: 5.420533},
+        {name: "MARSEILLE MAZARGUES", address: "614 AVE DE MAZARGUES", postalCode: "13008", city: "MARSEILLE", lat: 43.260046, lon: 5.393932},
+        {name: "MARSEILLE PAUL CLAUDEL", address: "171 BD PAUL CLAUDEL", postalCode: "13010", city: "MARSEILLE", lat: 43.268181, lon: 5.41632},
+        {name: "MARSEILLE PLOMBIERES", address: "83 BLD DE PLOMBIERES", postalCode: "13003", city: "MARSEILLE", lat: 43.315386, lon: 5.386157},
+        {name: "MARSEILLE SAKAKINI", address: "19 BOULEVARD SAKAKINI", postalCode: "13004", city: "MARSEILLE", lat: 43.297752, lon: 5.400834},
+        {name: "MARSEILLE ST ANTOINE", address: "21 BD HENRI BARNIER", postalCode: "13015", city: "MARSEILLE", lat: 43.373145, lon: 5.353866},
+        {name: "MARTIGUES", address: "20 AVE JOSE NOBRE ZI SUD", postalCode: "13500", city: "MARTIGUES", lat: 43.399042, lon: 5.038208},
+        {name: "MAUBEUGE", address: "79 BIS ROUTE D AVESNES", postalCode: "59600", city: "MAUBEUGE", lat: 50.268646, lon: 3.966576},
+        {name: "MAUREPAS", address: "RUE GALOIS CC PARIS WEST ANGLE", postalCode: "78310", city: "MAUREPAS", lat: 50.530845, lon: 1.586504},
+        {name: "MAYENNE", address: "33 BOULEVARD  DU GÉNÉRAL LECLERC", postalCode: "53100", city: "MAYENNE", lat: 48.298597, lon: -0.613999},
+        {name: "MEAUX", address: "2 AVE DU MARECHAL JOFFRE", postalCode: "77100", city: "MEAUX", lat: 48.961003, lon: 2.896497},
+        {name: "MELUN", address: "11 AVENUE DU GÉNÉRAL PATTON RN6", postalCode: "77000", city: "MELUN", lat: 48.547508, lon: 2.648957},
+        {name: "MELUN VERT SAINT DENIS", address: "3 Allée Aristide Briand", postalCode: "77240", city: "MELUN VERT SAINT DENIS", lat: 48.570014, lon: 2.625621},
+        {name: "MENDE", address: "14 AVENUE FOCH", postalCode: "48000", city: "MENDE", lat: 44.518069, lon: 3.494555},
+        {name: "MENTON", address: "98 PROMENADE VAL DU CAREI LE GALILLE", postalCode: "6500", city: "MENTON", lat: 43.788805, lon: 7.493106},
+        {name: "MERIGNAC", address: "12 AVE DE LA SOMME", postalCode: "33700", city: "MERIGNAC", lat: 44.829867, lon: -0.660098},
+        {name: "MERS LES BAINS", address: "CENTRE COMMERCIAL AUCHAN RD 925", postalCode: "80350", city: "MERS LES BAINS", lat: 50.059895, lon: 1.406269},
+        {name: "MERU", address: "2 RUE EMILE ZOLA", postalCode: "60110", city: "MERU", lat: 49.221258, lon: 2.135893},
+        {name: "METZ AUGNY", address: "901 RUE DES GRAVIERES", postalCode: "57685", city: "AUGNY", lat: 49.080571, lon: 6.109385},
+        {name: "METZ BORNY", address: "CENTRE COMMERCIAL CORA RUE PIERRE SIMON LAPLACE", postalCode: "57000", city: "METZ", lat: 49.102719, lon: 6.228565},
+        {name: "METZ SEMECOURT", address: "Centre commercial Auchan ZAC Euro Moselle", postalCode: "57280", city: "Semécourt", lat: 49.191329, lon: 6.147116},
+        {name: "MEXIMIEUX", address: "RUE DE LYON ZAC DE LA BILLONNETTE", postalCode: "1800", city: "MEXIMIEUX", lat: 45.901533, lon: 5.188994},
+        {name: "MEYZIEU", address: "127 RUE DE LA RÉPUBLIQUE", postalCode: "69330", city: "MEYZIEU", lat: 45.765477, lon: 5.009445},
+        {name: "MILLAU", address: "430 BD GEORGES BRASSENS ZAC CAP DU CRES", postalCode: "12100", city: "MILLAU", lat: 44.115076, lon: 3.071748},
+        {name: "MILLY LA FORET", address: "AVENUE DE GANAY RN 148", postalCode: "91490", city: "MILLY LA FORET", lat: 48.40708, lon: 2.468317},
+        {name: "MIMIZAN", address: "52 AVE DE BORDEAUX", postalCode: "40200", city: "MIMIZAN", lat: 44.204637, lon: -1.224546},
+        {name: "MOISSELLES", address: "CC LE GRAND BLEU", postalCode: "95570", city: "MOISSELLES", lat: 49.042965, lon: 2.348069},
+        {name: "MOISSELLES", address: "ROUTE NATIONALE 1", postalCode: "95570", city: "MOISSELLES", lat: 49.042965, lon: 2.348069},
+        {name: "MOLSHEIM", address: "24 ROUTE ÉCOSPACE", postalCode: "67120", city: "MOLSHEIM", lat: 48.532251, lon: 7.505645},
+        {name: "MONDEVILLE", address: "CENTRE COMMERCIAL REGIONAL MONDEVILLE 2 ZONE D ACTIVITES DE L ETOILE", postalCode: "14120", city: "MONDEVILLE", lat: 44.87726, lon: 1.209925},
+        {name: "MONETEAU", address: "RN6 CC Cora Les Grandes Haies", postalCode: "89470", city: "MONETEAU", lat: 47.843059, lon: 3.551465},
+        {name: "MONT DE MARSAN", address: "331 AVE DU MARECHAL JUIN", postalCode: "40000", city: "MONT-DE-MARSAN", lat: 43.90519, lon: -0.474741},
+        {name: "MONT ST MARTIN", address: "2 AVENUE DE L'EUROPE ZAC DES 3 FRONTIERES", postalCode: "54350", city: "MONT ST MARTIN", lat: 47.585018, lon: 7.582861},
+        {name: "MONTAIGU", address: "11 RUE DENIS PAPIN ZA MIRVILLE", postalCode: "85600", city: "MONTAIGU-VENDEE", lat: 46.971143, lon: -1.326113},
+        {name: "MONTAIGU", address: "ROUTE DE CHOLET LA BARILLERE", postalCode: "85600", city: "MONTAIGU", lat: 46.978725, lon: -1.301317},
+        {name: "MONTARGIS", address: "3 ROUTE DE NEVERS", postalCode: "45200", city: "MONTARGIS", lat: 48.007098, lon: 2.740331},
+        {name: "MONTAUBAN", address: "180 RTE DE PARIS", postalCode: "82000", city: "MONTAUBAN", lat: 44.031547, lon: 1.373186},
+        {name: "MONTAUBAN LARROQUE", address: "340 ROUTE DE BORDEAUX", postalCode: "82000", city: "MONTAUBAN", lat: 44.038787, lon: 1.307759},
+        {name: "MONTBARD", address: "RUE DE DIJON CENTRE CCOMMERCIAL LA COTE", postalCode: "21500", city: "MONTBARD", lat: 47.624776, lon: 4.34792},
+        {name: "MONTBARDPP", address: "3B RUE DE DIJON", postalCode: "21500", city: "SAINT REMY", lat: 47.638809, lon: 4.299244},
+        {name: "MONTBELIARD", address: "CC LECLERC ZAC DU PIED DES GOUTTES", postalCode: "25200", city: "MONTBELIARD", lat: 47.500303, lon: 6.814627},
+        {name: "MONTBRISON", address: "20 rue de Laplatte ZAC des Granges", postalCode: "42600", city: "MONTBRISON", lat: 45.598964, lon: 4.088576},
+        {name: "MONTDIDIER", address: "ZAC DE L'EPINETTE", postalCode: "80500", city: "MONTDIDIER", lat: 49.647097, lon: 2.589647},
+        {name: "MONTEILS", address: "CHEMIN DES AMOUREUX", postalCode: "82300", city: "MONTEILS", lat: 44.165166, lon: 1.555847},
+        {name: "MONTELIMAR", address: "1 RUE MARECHAL LECLERC", postalCode: "26200", city: "MONTELIMAR", lat: 44.54185, lon: 4.748025},
+        {name: "MONTFAVET", address: "4316 RTE DE MARSEILLE", postalCode: "84140", city: "MONTFAVET", lat: 43.906161, lon: 4.889853},
+        {name: "MONTIGNY", address: "39 BD BORDIER RN 14", postalCode: "95370", city: "MONTIGNY LES CORMEILLES", lat: 48.991545, lon: 2.199022},
+        {name: "MONTIVILLIERS", address: "CC LA LEZARDE AUCHAN", postalCode: "76290", city: "MONTIVILLIERS", lat: 49.553546, lon: 0.191846},
+        {name: "MONTLIOT ET COURCELLES", address: "Avenue Noel Navoizat Centre Commercial Auchan", postalCode: "21400", city: "MONTLIOT ET COURCELLES", lat: 47.900288, lon: 4.552686},
+        {name: "MONTLUCON", address: "12 RUE CAMILLE DESMOULINS", postalCode: "3100", city: "MONTLUCON", lat: 46.35389, lon: 2.590675},
+	{name: "MONTMORILLON", address: "60 ROUTE DE LUSSAC", postalCode: "86500", city: "MONTMORILLON", lat: 46.420346, lon: 0.86052},
+        {name: "MONTPELLIER MARTELLE", address: "Avenue de la Recambale", postalCode: "34070", city: "MONTPELLIER", lat: 43.603908, lon: 3.839147},
+        {name: "MONTROUGE", address: "128 AVE ARISTIDE BRIAND", postalCode: "92120", city: "MONTROUGE", lat: 48.815155, lon: 2.325928},
+        {name: "MORIGNY CHAMPIGNY", address: "ROUTE NATIONALE 20 LIEUDIT PARC DE BRUNEHAUT", postalCode: "91150", city: "MORIGNY CHAMPIGNY", lat: 48.456311, lon: 2.176902},
+        {name: "MORLAIX - ST MARTIN", address: "ZAC DU LAUNAY RUE GOAREMPELLA", postalCode: "29600", city: "SAINT-MARTIN-DES-CHAMPS", lat: 48.584106, lon: -3.81796},
+        {name: "MORTEAU", address: "Parking Intermarché", postalCode: "25500", city: "MORTEAU", lat: 47.059836, lon: 6.609354},
+        {name: "MORTEAUPP", address: "RUE VOIGERA LIEU-DIT LES USINES", postalCode: "25500", city: "LES FINS", lat: 47.085427, lon: 6.629295},
+        {name: "MOULINS", address: "75 BIS ROUTE DE LYON", postalCode: "3000", city: "MOULINS", lat: 46.551549, lon: 3.337938},
+        {name: "MOULINS LES METZ", address: "ZONE DE TOURNEBRIDE ROTONDE ROUTE DE JOUY", postalCode: "57160", city: "MOULINS LES METZ", lat: 49.093875, lon: 6.133777},
+        {name: "MULHOUSE", address: "167 AVENUE ROBERT SCHUMANN ZAC Des Nouveaux Bassins", postalCode: "68100", city: "MULHOUSE", lat: 47.759359, lon: 7.350609},
+        {name: "MULHOUSE - KINGERSHEIM", address: "93 ROUTE DE GUEBWILLER", postalCode: "68260", city: "KINGERSHEIM", lat: 47.791991, lon: 7.314869},
+        {name: "MULHOUSE DORNACH", address: "35 AVENUE FRANCOIS MITTERRAND", postalCode: "68200", city: "MULHOUSE", lat: 47.740915, lon: 7.306416},
+        {name: "MUZILLAC", address: "RUE DES SILENES ZONE LITTORAL", postalCode: "56190", city: "MUZILLAC", lat: 47.559411, lon: -2.509463},
+        {name: "NANCY LOBAU", address: "101, Bvd Lobau CC Auchan", postalCode: "54000", city: "NANCY", lat: 48.685844, lon: 6.195417},
+        {name: "NANTERRE", address: "77, AVENUE LENINE", postalCode: "92000", city: "NANTERRE", lat: 48.887579, lon: 2.189424},
+        {name: "NANTES MARTYRS", address: "16 BD DES MARTYRS NANTAIS", postalCode: "44000", city: "NANTES", lat: 47.204389, lon: -1.547147},
+        {name: "NANTES REZE", address: "ZA Atout Sud rue Ordronneau", postalCode: "44400", city: "REZE", lat: 47.196193, lon: -1.554598},
+        {name: "NARBONNE", address: "10 RUE POLLET ZAC DE BONNE SOURCE", postalCode: "11100", city: "NARBONNE", lat: 43.176212, lon: 3.028661},
+        {name: "NATIONALE FORBACH", address: "19 RUE NATIONALE", postalCode: "57600", city: "FORBACH", lat: 49.190341, lon: 6.908711},
+        {name: "NEMOURS", address: "30 RUE DE MONTARGIS", postalCode: "77140", city: "NEMOURS", lat: 48.252726, lon: 2.702922},
+        {name: "NEUFCHATEAU", address: "77 C AVENUE DU PRÉSIDENT KENNEDY", postalCode: "88300", city: "NEUFCHATEAU", lat: 48.353381, lon: 5.683196},
+        {name: "NEUFCHATEL EN BRAY", address: "3 Grande Rue Saint-Pierre", postalCode: "76270", city: "NEUFCHATEL EN BRAY", lat: 49.730766, lon: 1.436734},
+        {name: "NEUILLY SUR MARNE", address: "CC AUCHAN", postalCode: "93330", city: "NEUILLY/MARNE", lat: 48.856623, lon: 2.524085},
+        {name: "NEUILLY SUR MARNE", address: "9 TER BD MARECHAL FOCH", postalCode: "93330", city: "NEUILLY SUR MARNE", lat: 48.85418, lon: 2.519667},
+        {name: "NEVERS", address: "48 BD DU GRAND PRES DES BORDES ZAC DES GRANDS CHAMPS", postalCode: "58000", city: "NEVERS", lat: 46.995235, lon: 3.122787},
+        {name: "NICE DANTE", address: "20 RUE DANTE", postalCode: "6000", city: "NICE", lat: 43.695547, lon: 7.253249},
+        {name: "NICE LINGOSTIERE", address: "590 route de Grenoble CC Forum Lingostière", postalCode: "6200", city: "NICE", lat: 43.722346, lon: 7.189674},
+        {name: "NICE ST AUGUSTIN", address: "15/17 AVENUE SAINT AUGUSTIN", postalCode: "6200", city: "NICE", lat: 43.675144, lon: 7.223642},
+        {name: "NIEPPE", address: "Zone Ciale Dreves Portes de Flandres DREVE GODEFROY", postalCode: "59850", city: "NIEPPE", lat: 50.686335, lon: 2.835716},
+        {name: "NIMES", address: "134 RUE DU PERE BROTTIER", postalCode: "30900", city: "NIMES", lat: 43.819216, lon: 4.347179},
+        {name: "NIORT", address: "10 RUE JEAN FRANCOIS CAIL Zone Commerciale Espace Mendes", postalCode: "79000", city: "NIORT", lat: 46.330583, lon: -0.413133},
+        {name: "NIORT SEVRE", address: "122 AVENUE DE LA ROCHELLE", postalCode: "79000", city: "NIORT", lat: 46.316414, lon: -0.473218},
+        {name: "NOGENT LE ROTROU", address: "2 RUE DU BOIS DE L'AUMÔNE", postalCode: "28400", city: "NOGENT LE ROTROU", lat: 48.315952, lon: 0.840853},
+        {name: "NOGENT ROTROUPP", address: "CARGLASS CHEZ TRANSPORT CHEVALIER PERE ET FILS SARL ROUTE D ORLEANS", postalCode: "28400", city: "NOGENT LE ROTROU", lat: 48.31033, lon: 0.818956},
+        {name: "NOISY LE SEC", address: "20-30 RUE JULES AUFFRET", postalCode: "93130", city: "NOISY LE SEC", lat: 48.887995, lon: 2.455736},
+        {name: "NOYELLES GODAULT", address: "CENTRE COMMERCIAL AUCHAN NOYELLE GODAULT", postalCode: "62950", city: "NOYELLES GODAULT", lat: 50.419957, lon: 2.995834},
+        {name: "NOYON", address: "ZAC du Mont Renaud Avenue Simone de Beauvoir", postalCode: "60400", city: "NOYON", lat: 49.571841, lon: 2.977063},
+        {name: "OBERNAI", address: "8  RUE DU MARECHAL JUIN", postalCode: "67210", city: "OBERNAI", lat: 48.459696, lon: 7.49499},
+        {name: "OLLIOULES", address: "125 CHEMIN DE LA CAPELLANE", postalCode: "83190", city: "OLLIOULES", lat: 43.122409, lon: 5.848315},
+        {name: "OLORON STE MARIE", address: "28 AVENUE CHARLES ET HENRI MOUREU", postalCode: "64400", city: "OLORON STE MARIE", lat: 43.190514, lon: -0.616837},
+        {name: "ORANGE", address: "780 AVE DE VERDUN", postalCode: "84100", city: "ORANGE", lat: 44.125739, lon: 4.825091},
+        {name: "ORCHIES", address: "33 ZONE DE L EUROPE", postalCode: "59310", city: "ORCHIES", lat: 50.477112, lon: 3.235796},
+        {name: "ORGEVAL", address: "Route de 40 Sous RN13", postalCode: "78630", city: "ORGEVAL", lat: 48.929675, lon: 1.977685},
+        {name: "ORLEANS FLEURY", address: "5 rue Frédéric et Irène Joliot Curie CC LECLERC", postalCode: "45400", city: "FLEURY LES AUBRAIS", lat: 47.946653, lon: 1.919194},
+        {name: "ORLEANS NORD", address: "23 - 25 AVENUE DE LA LIBERATION", postalCode: "45000", city: "ORLEANS", lat: 47.919937, lon: 1.902261},
+        {name: "ORLEANS OLIVET", address: "Rue Anthelme Brillat Savarin ZC expo sud", postalCode: "45100", city: "ORLEANS", lat: 47.875163, lon: 1.91121},
+        {name: "ORLEANS SUD", address: "72 B RTE D'OLIVET", postalCode: "45100", city: "ORLEANS", lat: 47.882792, lon: 1.903697},
+        {name: "ORLY", address: "1 RUE DES LANCES", postalCode: "94310", city: "ORLY", lat: 48.750082, lon: 2.389708},
+        {name: "ORTHEZ", address: "Route de Pau Centre commercial des Soarns", postalCode: "64300", city: "ORTHEZ", lat: 43.478941, lon: -0.743912},
+        {name: "ORTHEZ", address: "ROUTE DE PAU CC DES SOARNS", postalCode: "64300", city: "ORTHEZ", lat: 43.478941, lon: -0.743912},
+        {name: "ORVAULT", address: "Chemin des Martinets CC Leclerc Grandval", postalCode: "44700", city: "ORVAULT", lat: 47.261092, lon: -1.583317},
+        {name: "OSNY", address: "22 RTE DE DIEPPE", postalCode: "95520", city: "OSNY", lat: 49.073942, lon: 2.079038},
+        {name: "OTTERSWILLER", address: "PARC DU COMMERCE N 18", postalCode: "67700", city: "OTTERSWILLER", lat: 48.728215, lon: 7.374646},
+        {name: "OYONNAX ARBENT", address: "1 RUE FRANCOIS ROCHAIX", postalCode: "1100", city: "ARBENT", lat: 46.274956, lon: 5.659571},
+        {name: "PAMIERS", address: "Route de Foix C/Cial Les Couverts de St Antonin", postalCode: "9100", city: "PAMIERS", lat: 43.119681, lon: 1.604578},
+        {name: "PANTIN", address: "208 AVE DU GENERAL LECLERC", postalCode: "93500", city: "PANTIN", lat: 48.899238, lon: 2.408093},
+        {name: "PARC ASTERIX", address: "PARC ASTERIX BP 8", postalCode: "60128", city: "PLAILLY", lat: 49.133086, lon: 2.572647},
+        {name: "PARIS CHAUFOURNIERS", address: "152-162 BLD DE LA VILLETTE", postalCode: "75019", city: "PARIS", lat: 48.878194, lon: 2.373148},
+        {name: "PARIS MORTIER", address: "101 BLD  MORTIER", postalCode: "75020", city: "PARIS", lat: 48.871162, lon: 2.408483},
+        {name: "PARIS ORDENER", address: "47 RUE ORDENER", postalCode: "75018", city: "PARIS", lat: 48.890917, lon: 2.352527},
+        {name: "PARIS PARC PRINCES", address: "29, AVENUE DU PARC DES PRINCES", postalCode: "75016", city: "PARIS", lat: 48.84074, lon: 2.254195},
+        {name: "PARIS TROCADERO", address: "8 AVE DU PRESIDENT KENNEDY", postalCode: "75016", city: "PARIS", lat: 48.854346, lon: 2.283007},
+        {name: "PARTHENAYPP", address: "13 AVENUE DU FRENE", postalCode: "79200", city: "CHATILLON", lat: 46.669077, lon: -0.22807},
+	{name: "PAU BIZANOS", address: "37, Boulevard du Commandant René Mouchotte Route de Tarbes", postalCode: "64320", city: "BIZANOS", lat: 43.304066, lon: -0.321813},
+        {name: "PAU LESCAR", address: "ROUTE DE BAYONNE", postalCode: "64230", city: "PAU LESCAR", lat: 43.344963, lon: -0.475061},
+        {name: "PAU LONS", address: "51 BIS  BOULEVARD CHARLES DE GAULLE", postalCode: "64140", city: "LONS", lat: 43.308756, lon: -0.409541},
+        {name: "PAU MERMOZ", address: "208 AVENUE JEAN MERMOZ", postalCode: "64000", city: "PAU", lat: 43.31887, lon: -0.378374},
+        {name: "PERIGUEUX - BOULAZAC", address: "11 ALLEE JACQUES DUCLOS", postalCode: "24750", city: "BOULAZAC", lat: 45.18485, lon: 0.774503},
+        {name: "PERIGUEUX - MARSAC", address: "CHEMIN DU PRETRE", postalCode: "24430", city: "MARSAC SUR L ISLE", lat: 45.173481, lon: 0.64258},
+        {name: "PEROLS", address: "Rue de Bir Hakeim Local Les Galfière", postalCode: "34470", city: "PEROLS", lat: 43.571015, lon: 3.94228},
+        {name: "PERON", address: "245 Rue de Pré Munny", postalCode: "1630", city: "PERON", lat: 46.184108, lon: 5.928365},
+        {name: "PERONNE", address: "1 RUE D ATHENES ZAC DU MONT ST QUENTIN", postalCode: "80200", city: "PERONNE", lat: 49.93928, lon: 2.931734},
+        {name: "PERPIGNAN", address: "28 COURS LAZARE ESCARGUEL", postalCode: "66000", city: "PERPIGNAN", lat: 42.697718, lon: 2.887456},
+        {name: "PERPIGNAN", address: "ROUTE DU PERTHUS LOTISSEMENT DES GRANDS CHÊNES", postalCode: "66000", city: "PERPIGNAN", lat: 42.688642, lon: 2.837349},
+        {name: "PERPIGNAN 2", address: "550 CHEMIN DE LA FAUCEILLE", postalCode: "66000", city: "PERPIGNAN", lat: 42.658209, lon: 2.906168},
+        {name: "PERPIGNAN CLAIRA", address: "Route du Barcares Centre Commercial CARREFOUR", postalCode: "66530", city: "CLAIRA", lat: 42.776543, lon: 2.912453},
+        {name: "PERRUSSON", address: "9 RUE DU BOURG NEUF AVENUE DE LA CLOUTIERE CC LECLERC", postalCode: "37600", city: "PERRUSSON", lat: 47.106421, lon: 1.005602},
+        {name: "PESSAC", address: "88 AVENUE JEAN JAURES", postalCode: "33600", city: "PESSAC", lat: 44.809235, lon: -0.622998},
+        {name: "PETITE FORET", address: "Rue Evariste Galois", postalCode: "59494", city: "PETITE FORET", lat: 50.377431, lon: 3.48101},
+        {name: "PETITE FORET", address: "ROUTE NATIONALE 45 Parking Auchan", postalCode: "59494", city: "PETITE FORET", lat: 50.375697, lon: 3.47765},
+        {name: "PEZENAS", address: "5 RUE EDOUARD BRANLY ZA LES AIRES", postalCode: "34120", city: "PEZENAS", lat: 43.452149, lon: 3.414106},
+        {name: "PIERRE BENITE", address: "115 BLD DE L'EUROPE", postalCode: "69310", city: "PIERRE BENITE", lat: 45.701415, lon: 4.822552},
+        {name: "PIERREFITTE", address: "21 AVE LENINE", postalCode: "93380", city: "PIERREFITTE", lat: 48.958889, lon: 2.358884},
+        {name: "PIERRELATTE", address: "AVENUE DE PROVENCE CC LA CROIX D OR", postalCode: "26700", city: "PIERRELATTE", lat: 44.378229, lon: 4.696899},
+        {name: "PINEUILH", address: "80 RUE DE LA RÉSISTANCE CC GRAND PINEUILH ZI LES BOUCHETS", postalCode: "33220", city: "PINEUILH", lat: 44.828256, lon: 0.219142},
+        {name: "PITHIVIERS", address: "175 RUE FLORA TRISTAN", postalCode: "45300", city: "PITHIVIERS", lat: 48.18728, lon: 2.250132},
+        {name: "PLAISIR", address: "Ccial GRAND PLAISIR", postalCode: "78370", city: "PLAISIR", lat: 48.804076, lon: 1.969764},
+        {name: "PLAN DE CAMPAGNE", address: "Chemin de la Grande Campagne Zone commerciale Plan de Campagne", postalCode: "13480", city: "CABRIES", lat: 43.419216, lon: 5.362503},
+        {name: "PLERIN", address: "CC PLERIN ZAC DU PLATEAU", postalCode: "22190", city: "PLERIN", lat: 48.537779, lon: -2.719859},
+        {name: "PLOERMEL", address: "22 RUE DES HULOUX", postalCode: "56800", city: "PLOERMEL", lat: 47.943247, lon: -2.38957},
+        {name: "PLOUGASTEL", address: "ZAC de TY ar Menez", postalCode: "29470", city: "PLOUGASTEL-DAOULAS", lat: 48.386462, lon: -4.346699},
+        {name: "PODENSAC", address: "ROUTE DE VIERZON CC CARREFOUR", postalCode: "33720", city: "PODENSAC", lat: 44.621757, lon: -0.430339},
+        {name: "POITIERS SUD", address: "91, avenue du 8 mai 1945", postalCode: "86000", city: "POITIERS", lat: 46.558708, lon: 0.311941},
+        {name: "PONT A MOUSSON", address: "MATCH PRE LA TOUR", postalCode: "54700", city: "PONT A MOUSSON", lat: 48.933591, lon: 6.034111},
+        {name: "PONT AUDEMER", address: "Rue de Saint Ulfrant", postalCode: "27500", city: "PONT AUDEMER", lat: 49.346023, lon: 0.542536},
+        {name: "PONT DE BEAUVOISIN", address: "ZAE LA BARONNIE 294 RUE EMMANUEL CRETET", postalCode: "73330", city: "LE PONT DE BEAUVOISIN", lat: 45.529758, lon: 5.688063},
+        {name: "PONT L'ABBE", address: "Rocade de Pont l'Abbé Ploneour - Lanvern", postalCode: "29120", city: "PONT L'ABBE", lat: 47.865875, lon: -4.22825},
+        {name: "PONT ST JEAN CLERMONT", address: "24 BOULEVARD AMBROISE BRUGIERE", postalCode: "63000", city: "CLERMONT FERRAND", lat: 45.789114, lon: 3.1179},
+        {name: "PONT STE MAXENCE", address: "AVE D'AUVELAIS CC DU VAL D'HALATTE", postalCode: "60700", city: "PONT STE MAXENCE", lat: 49.313883, lon: 2.605271},
+        {name: "PONT STE MAXENCE", address: "39 RUE DE LA REPUBLIQUE", postalCode: "60700", city: "PONT STE MAXENCE", lat: 49.305466, lon: 2.604222},
+        {name: "PONTARLIER", address: "33 RUE DE LA LIBERATION CENTRE COMMERCIAL CITY AVENUE", postalCode: "25300", city: "PONTARLIER", lat: 46.909969, lon: 6.339812},
+        {name: "PONTIVY", address: "56 RUE ALBERT DE MUN", postalCode: "56300", city: "PONTIVY", lat: 48.050388, lon: -2.958775},
+        {name: "PORNIC", address: "7 RUE DU TRAITE DE MAASTRICHT", postalCode: "44210", city: "PORNIC", lat: 47.126144, lon: -2.127632},
+        {name: "PORTET SUR GARONNE", address: "17 BOULEVARD DE L EUROPE", postalCode: "31120", city: "PORTET SUR GARONNE", lat: 43.532643, lon: 1.397919},
+        {name: "PRADES", address: "ROUTE D'EUS RUE DE LA SERR ZAC GIBRALTAR", postalCode: "66500", city: "PRADES", lat: 42.625666, lon: 2.429362},
+        {name: "PROVINS", address: "13 RUE GEORGES DROMIGNY", postalCode: "77160", city: "PROVINS", lat: 48.553616, lon: 3.293465},
+        {name: "PTE MONTREUIL PARIS 20", address: "75 BLD DAVOUT", postalCode: "75020", city: "PARIS", lat: 48.853534, lon: 2.411877},
+        {name: "PUGET SUR ARGENS", address: "618 Bd du Commerce CC Carrefour", postalCode: "83480", city: "PUGET SUR ARGENS", lat: 43.448358, lon: 6.698492},
+        {name: "PUYGOUZON", address: "401 ROUTE DE CASTRES", postalCode: "81990", city: "PUYGOUZON", lat: 43.895304, lon: 2.153299},
+        {name: "QUETIGNY", address: "ZAC DES CHARRIERES-CHALANDS", postalCode: "21800", city: "QUETIGNY", lat: 47.316677, lon: 5.099735},
+        {name: "QUIMPER", address: "14 Allée du Docteur Picquenard", postalCode: "29000", city: "QUIMPER", lat: 47.999714, lon: -4.076243},
+        {name: "RAMBOUILLET", address: "14 RUE GUSTAVE EIFFEL", postalCode: "78120", city: "RAMBOUILLET", lat: 48.624243, lon: 1.825955},
+        {name: "REDON", address: "ZONE ARTISANALE DE BRIANGAUD 1, RUE JEAN MONNET", postalCode: "35600", city: "REDON", lat: 47.67318, lon: -2.068843},
+        {name: "REIMS", address: "28 BLD JOFFRE", postalCode: "51100", city: "REIMS", lat: 49.259429, lon: 4.026127},
+        {name: "REIMS CHAMPENOISE", address: "252 BIS AVENUE JEAN JAURES", postalCode: "51100", city: "REIMS", lat: 49.26472, lon: 4.059574},
+        {name: "REIMS LA NEUVILLETTE", address: "CC CORA Zac la Neuvillette", postalCode: "51100", city: "REIMS", lat: 49.287996, lon: 4.009272},
+        {name: "REMIREMONT", address: "17 ROUTE DE BUSSANG", postalCode: "88200", city: "ST ETIENNE LES REMIREMONT", lat: 48.00493, lon: 6.612474},
+        {name: "RENNES", address: "17 Rue Bahon Rault ZI Nord", postalCode: "35000", city: "RENNES", lat: 48.133943, lon: -1.684581},
+        {name: "RENNES CHANTEPIE", address: "Parc d'activités rocade sud", postalCode: "35135", city: "CHANTEPIE", lat: 47.68838, lon: -2.05447},
+        {name: "RENNES LONGS CHAMPS", address: "9 Allée Morvan Lebesque CC Intermarché ZAC DES LONGS CHAMPS", postalCode: "35700", city: "RENNES", lat: 48.131068, lon: -1.63302},
+        {name: "RENNES ST GREGOIRE", address: "Rue du Chesnay Beauregard", postalCode: "35760", city: "ST GREGOIRE", lat: 48.137244, lon: -1.688772},
+        {name: "RETHEL", address: "4 RUE DE MONTPELLIER", postalCode: "8300", city: "RETHEL", lat: 49.503629, lon: 4.360822},
+        {name: "REVERIAZ CHAMBERY", address: "1388 AVENUE DE LYON", postalCode: "73000", city: "CHAMBERY", lat: 45.563307, lon: 5.90222},
+        {name: "REZE", address: "13 RUE GEORGES CHARPAK", postalCode: "44400", city: "REZE", lat: 47.157108, lon: -1.535824},
+        {name: "RIBERAC", address: "RUE ANDRE CHEMINADE", postalCode: "24600", city: "RIBERAC", lat: 45.25379, lon: 0.349003},
+        {name: "RIOM - ENVAL", address: "138 ROUTE DE VOLVIC LES GARDELLES", postalCode: "63530", city: "ENVAL", lat: 45.887548, lon: 3.065775},
+	{name: "RIOM MALAUZAT", address: "RUE DES GARDELLES ZA DES GARDELLES", postalCode: "63200", city: "MALAUZAT", lat: 45.887129, lon: 3.068506},
+        {name: "RIXHEIM", address: "66 ROUTE DE HABSHEIM", postalCode: "68170", city: "RIXHEIM", lat: 47.745519, lon: 7.411467},
+        {name: "ROANNE", address: "16 PL DES PROMENADES", postalCode: "42300", city: "ROANNE", lat: 46.036987, lon: 4.065956},
+        {name: "RODEZ", address: "34 AVE DE LA GINESTE", postalCode: "12000", city: "RODEZ", lat: 44.362313, lon: 2.563737},
+        {name: "ROMAINVILLE", address: "22 AVENUE LENINE", postalCode: "93230", city: "ROMAINVILLE", lat: 48.884232, lon: 2.429641},
+        {name: "ROMORANTIN LANTHENAY", address: "36, RUE DE L'ETANG BARBIN", postalCode: "41200", city: "ROMORANTIN LANTHENAY", lat: 47.341569, lon: 1.742392},
+        {name: "RONCQ", address: "324 Rue Henri Barbusse Centre Cial Auchan", postalCode: "59223", city: "RONCQ", lat: 50.740192, lon: 3.133299},
+        {name: "ROUBAIX", address: "83 boulevard Gambetta", postalCode: "59100", city: "ROUBAIX", lat: 50.692286, lon: 3.182598},
+        {name: "ROUEN GRAND QUEVILLY", address: " CC du Bois Cany   Géant    ", postalCode: "76120", city: "LE GRAND QUEVILLY", lat: 49.417942, lon: 1.051414},
+        {name: "ROUEN ST SEVER", address: "34 AVENUE DE CAEN", postalCode: "76100", city: "ROUEN", lat: 49.430333, lon: 1.077138},
+        {name: "ROYAN", address: "1 AV DE LA LIBERATION", postalCode: "17200", city: "ROYAN", lat: 45.623467, lon: -1.01293},
+        {name: "RUFFEC", address: "17 ROUTE D AIGRE", postalCode: "16700", city: "RUFFEC", lat: 46.024233, lon: 0.196214},
+        {name: "SAINT ESTEVE", address: "14 RUE DES GRILLONS", postalCode: "66240", city: "SAINT ESTEVE", lat: 42.716781, lon: 2.846461},
+        {name: "SAINT ETIENNE SAINT GEOIRS", address: "CHEMIN DE LA PIERRE", postalCode: "38590", city: "ST ETIENNE DE ST GEOIRS", lat: 45.350806, lon: 5.333627},
+        {name: "SAINT JORY", address: "6 RUE DE CABOURDY RN 20", postalCode: "31790", city: "SAINT JORY", lat: 43.74622, lon: 1.365526},
+        {name: "SAINT LEGER SOUS CHOLET", address: "26 RUE DE LA VENDÉE", postalCode: "49280", city: "ST LEGER SOUS CHOLET", lat: 47.088091, lon: -0.908468},
+        {name: "SAINT LOUIS", address: "4 CHEMIN DU HELLHOF", postalCode: "68300", city: "SAINT LOUIS", lat: 47.604222, lon: 7.542235},
+        {name: "SAINT MARD", address: "ZAC DE LA FONTAINE DU BERGER", postalCode: "77230", city: "SAINT-MARD", lat: 49.034351, lon: 2.683088},
+        {name: "SAINT MARTIN AU LAERT", address: "IMPASSE DE L'INDUSTRIE", postalCode: "62500", city: "SAINT MARTIN AU LAERT", lat: 50.759609, lon: 2.220895},
+        {name: "SAINT MARTIN LES BOULOGNE", address: "CENTRE COMMERCIAL AUCHAN RN42", postalCode: "62280", city: "SAINT MARTIN LES BOULOGNE", lat: 50.734671, lon: 1.674766},
+        {name: "SAINT NICOLAS DE PORT", address: "ROUTE DE VILLE EN VERMOIS RD 71", postalCode: "54210", city: "SAINT NICOLAS DE PORT", lat: 48.623264, lon: 6.288725},
+        {name: "SAINT PAUL LES ROMANS", address: "LE PARC SAINT-PAUL 1 AVE DES PINS", postalCode: "26750", city: "SAINT PAUL LES ROMANS", lat: 45.059358, lon: 5.106175},
+        {name: "SAINT PEE SUR NIVELLE", address: "ZONE D'ACTIVITES LIZARDIA 2 QUARTIER IBARRON", postalCode: "64310", city: "ST PEE SUR NIVELLE", lat: 43.359934, lon: -1.575958},
+        {name: "SAINTES", address: "102 COURS DU MARÉCHAL LECLERC", postalCode: "17100", city: "SAINTES", lat: 45.75422, lon: -0.655041},
+        {name: "SAIX", address: "11 BIS ROUTE DE TOULOUSE", postalCode: "81710", city: "SAIX", lat: 43.582871, lon: 2.18208},
+        {name: "SALAISE SUR SANNE", address: "215 RUE D'ALEMBERT", postalCode: "38150", city: "SALAISE SUR SANNE", lat: 45.341706, lon: 4.802817},
+        {name: "SALINS LES THERMES", address: "192 AV DES THERMES SALINS", postalCode: "73600", city: "SALINS-FONTAINE", lat: 45.47671, lon: 6.527535},
+        {name: "SALLANCHES", address: "1604 RUE ANDRE LASQUIN", postalCode: "74700", city: "SALLANCHES", lat: 45.953212, lon: 6.634661},
+        {name: "SALON DE PROVENCE", address: "465 AVE GEORGES BOREL", postalCode: "13300", city: "SALON DE PROVENCE", lat: 43.640623, lon: 5.079459},
+        {name: "SAMOREAU", address: "2 RUE DES SABLONS POLE AUTOMOBILE", postalCode: "77210", city: "SAMOREAU", lat: 48.424385, lon: 2.76879},
+        {name: "SANNOIS", address: "82 BLD GABRIEL PERI", postalCode: "95110", city: "SANNOIS", lat: 48.966385, lon: 2.261737},
+        {name: "SARLAT", address: "RUE DE SELVE", postalCode: "24200", city: "SARLAT", lat: 44.897344, lon: 1.213238},
+        {name: "SARLAT LA CANEDAT", address: "1049 AVENUE SIMONE VEIL", postalCode: "24200", city: "SARLAT LA CANEDAT", lat: 44.875004, lon: 1.227696},
+        {name: "SARREBOURG", address: "Zone d'activités Ariane Plus", postalCode: "57400", city: "BUHL-LORRAINE", lat: 48.730982, lon: 7.080552},
+        {name: "SARREGUEMINES", address: "3 RUE JOSEPH CUGNOT", postalCode: "57200", city: "SARREGUEMINES", lat: 49.109541, lon: 7.098276},
+        {name: "SAUMUR DISTRE", address: "ZA du Champs Blanchard Rue de l'avenir Lieudit La Basse Carte", postalCode: "49400", city: "DISTRE", lat: 47.230938, lon: -0.122236},
+        {name: "SCHILTIGHEIM", address: "4 RUE CONTADES", postalCode: "67300", city: "SCHILTIGHEIM", lat: 48.601786, lon: 7.754633},
+        {name: "SCHIRMECK STRASBOURG", address: "68 ROUTE DE SCHIRMECK", postalCode: "67200", city: "STRASBOURG", lat: 48.573037, lon: 7.716674},
+        {name: "SCHWEIGHOUSE", address: "CC Auchan", postalCode: "67590", city: "SCHWEIGHOUSE", lat: 48.794869, lon: 7.703115},
+        {name: "SECLIN", address: "550 RUE DE L INDUSTRIE ZAC DE L EPINETTE", postalCode: "59113", city: "SECLIN", lat: 50.550622, lon: 3.049786},
+        {name: "SEDAN", address: "8 AVENUE DE LA MARNE", postalCode: "8200", city: "SEDAN", lat: 49.699284, lon: 4.92679},
+        {name: "SEILHAN", address: "RUE D ARNAT ZONE ARTISANALE CROIX DU BAZERT", postalCode: "31510", city: "SEILHAN", lat: 43.059253, lon: 0.590696},
+        {name: "SELESTAT", address: "6 RUE DE L'INDUSTRIE", postalCode: "67600", city: "SELESTAT", lat: 48.28073, lon: 7.465375},
+        {name: "SELTZ", address: "ROUTE D'HATTEN", postalCode: "67470", city: "SELTZ", lat: 48.895765, lon: 8.095061},
+        {name: "SEMECOURT", address: "AUCHAN VOIE ROMAINE", postalCode: "57280", city: "SEMECOURT", lat: 49.198293, lon: 6.149763},
+        {name: "SENLIS", address: "64 - 66 AVENUE MARECHAL FOCH", postalCode: "60300", city: "SENLIS", lat: 49.209028, lon: 2.591565},
+        {name: "SENLIS CHAMANT", address: "AVE DU POTEAU", postalCode: "60300", city: "CHAMANT", lat: 49.216833, lon: 2.596161},
+        {name: "SENS", address: "ZC Porte de Bourgogne Plaine de Champbertrand", postalCode: "89100", city: "SENS", lat: 48.175564, lon: 3.285132},
+        {name: "SETE", address: "9 QUAI ADOLPHE MERLE", postalCode: "34200", city: "SETE", lat: 43.408024, lon: 3.696289},
+        {name: "SETE BALARUC", address: "CC Balaruc Loisirs", postalCode: "34540", city: "BALARUC LE VIEUX", lat: 43.460001, lon: 3.691218},
+        {name: "SEVRAN", address: "Route des Petits Ponts", postalCode: "93270", city: "SEVRAN", lat: 48.950313, lon: 2.525148},
+        {name: "SEYSSES", address: "1 RUE DANIELE CASANOVA ZONE INDUSTRIELLE SEGLA", postalCode: "31600", city: "SEYSSES", lat: 43.490695, lon: 1.317495},
+        {name: "SIN LE NOBLE", address: "CENTRE COMMERCIAL AUCHAN CENTRE COMMERCIAL LES EPIS", postalCode: "59450", city: "SIN LE NOBLE", lat: 50.342436, lon: 3.098851},
+        {name: "SOISSONS", address: "7 AVENUE DE LAON", postalCode: "2200", city: "SOISSONS", lat: 49.385788, lon: 3.332264},
+        {name: "SOISSONS SUD", address: "Rue Marcel Paul ZAC de l'Archer", postalCode: "O2200", city: "SOISSONS", lat: 49.367953, lon: 3.31595},
+        {name: "SORGUES", address: "269 CHEMIN DES DAULANDS ZAC PORTE DE VAUCLUSE", postalCode: "84700", city: "SORGUES", lat: 43.99054, lon: 4.88014},
+        {name: "SOTTEVILLE LES ROUEN", address: "57 BD INDUSTRIEL", postalCode: "76300", city: "SOTTEVILLE LES ROUEN", lat: 49.40394, lon: 1.111301},
+        {name: "ST ALBAN", address: "16 AVENUE DE FRONTON", postalCode: "31140", city: "ST ALBAN", lat: 43.683653, lon: 1.420279},
+        {name: "ST AMAND MONTROND", address: "191 AVENUE DU TOUR DE FRANCE", postalCode: "18200", city: "ST AMAND MONTROND", lat: 46.721726, lon: 2.529595},
+        {name: "ST ANDRE DE CUBZAC", address: "175, RUE DES DROITS DE L'HOMME ZAC DE LA GAROSSE", postalCode: "33240", city: "SAINT ANDRE DE CUBZAC", lat: 45.009909, lon: -0.426656},
+        {name: "ST AUBIN LES ELBEUF", address: "64 AVE DU MARECHAL LECLERC", postalCode: "76410", city: "ST AUBIN LES ELBEUF", lat: 49.30287, lon: 1.016497},
+        {name: "ST AVOLD", address: "RN3 - Zone de Heckenwald", postalCode: "57740", city: "LONGEVILLE LES ST AVOLD", lat: 49.109729, lon: 6.682256},
+        {name: "ST BRICE SOUS FORET", address: "65 rue Jean Monnet LIEUDIT LES PERRUCHES", postalCode: "95350", city: "ST BRICE SOUS FORET", lat: 49.01218, lon: 2.35087},
+        {name: "ST BRIEUC - LANGUEUX", address: "3 RUE DES GENETS", postalCode: "22360", city: "LANGUEUX", lat: 48.496906, lon: -2.734614},
+        {name: "ST CLOUD", address: "30 QUAI DU PRÉSIDENT CARNOT", postalCode: "92210", city: "ST CLOUD", lat: 48.847277, lon: 2.223607},
+        {name: "ST CYPRIEN", address: "74 BOULEVARD DESNOYER", postalCode: "66750", city: "SAINT CYPRIEN", lat: 42.635908, lon: 3.03375},
+        {name: "ST DENIS", address: "47 BD MARCEL SEMBAT", postalCode: "93200", city: "SAINT DENIS", lat: 48.933025, lon: 2.351398},
+        {name: "ST DENIS LES SENS", address: "RUE DE PARIS ZONE COMMERCIALE E LECLERC", postalCode: "89100", city: "SAINT DENIS LES SENS", lat: 0, lon: 0},
+        {name: "ST DIE", address: "CC LECLERC ZA HELLIEULES 2", postalCode: "88100", city: "ST DIE DES VOSGES", lat: 48.284985, lon: 6.943532},
+        {name: "ST DIE MARGUERITE", address: "345 RUE ERNEST CHARLIER ZONE COMMERCIALE CORA", postalCode: "88100", city: "SAINTE-MARGUERITE", lat: 48.274392, lon: 6.966175},
+        {name: "ST DIZIER", address: "6 ROUTE DE BAR-LE-DUC", postalCode: "52100", city: "SAINT DIZIER", lat: 48.64846, lon: 4.959071},
+        {name: "ST DOULCHARD", address: "404 BIS ROUTE D ORLEANS", postalCode: "18230", city: "ST DOULCHARD", lat: 47.109571, lon: 2.377908},
+        {name: "ST ETIENNE LA MONTAT", address: "100 RUE DE LA MONTAT", postalCode: "42100", city: "ST ETIENNE", lat: 45.442303, lon: 4.409771},
+        {name: "ST ETIENNE LA RIVIERE", address: "4 RUE DE DUNKERQUE", postalCode: "42100", city: "ST ETIENNE", lat: 45.415022, lon: 4.40416},
+        {name: "ST ETIENNE REMIREMONT", address: "38 RUE DES PECHEURS", postalCode: "88200", city: "ST ETIENNE LES REMIREMONT", lat: 48.017138, lon: 6.612871},
+        {name: "ST GAUDENS", address: "80 Bis Avenue Francois Mitterand", postalCode: "31800", city: "ST GAUDENS", lat: 43.110705, lon: 0.73714},
+        {name: "ST GEREON", address: "Espace 23 482 Boulevard de la prairie", postalCode: "44150", city: "ST GEREON", lat: 47.374175, lon: -1.19435},
+        {name: "ST GERMAIN LES ARPAJON", address: "25 ROUTE NATIONALE 20", postalCode: "91290", city: "ST GERMAIN LES ARPAJON", lat: 48.602308, lon: 2.24721},
+        {name: "ST HERBLAIN", address: "331 RTE DE VANNES", postalCode: "44800", city: "ST HERBLAIN", lat: 47.247969, lon: -1.609161},
+        {name: "ST JEAN BONNEFOND", address: "RUE EMILE ZOLA ZA DU PONT DE L'ANE", postalCode: "42650", city: "ST JEAN BONNEFONDS", lat: 45.444354, lon: 4.42697},
+        {name: "ST JEAN DE LA RUELLE", address: "AVENUE PIERRE MENDES FRANCE CC AUCHAN", postalCode: "45140", city: "ST JEAN DE LA RUELLE", lat: 47.905064, lon: 1.865058},
+        {name: "ST JEAN DE LUZ", address: "26 AVENUE DE CHANTACO RD 0918", postalCode: "64500", city: "ST JEAN DE LUZ", lat: 43.382454, lon: -1.649133},
+        {name: "ST JEAN DE MAURIENNE", address: "284 RUE PIERRE LEON GROS", postalCode: "73300", city: "ST JEAN DE MAURIENNE", lat: 45.267898, lon: 6.371865},
+        {name: "ST JEAN DE VEDAS", address: "30, RUE PIERRE ET MARIE CURIE", postalCode: "34430", city: "SAINT JEAN DE VEDAS", lat: 43.582758, lon: 3.845446},
+        {name: "ST JUNIEN", address: "RUE GUSTAVE COURBET ZONE COMMERCIALE LES MARTINES", postalCode: "87200", city: "SAINT JUNIEN", lat: 50.737001, lon: 2.549813},
+        {name: "ST LEONARD", address: "63 BD DE LA LIANE", postalCode: "62360", city: "SAINT LEONARD", lat: 50.690961, lon: 1.615131},
+        {name: "ST LO AGNEAUX", address: "ZA DE LA CROIX CARRÉE 76 RUE DENIS PAPIN", postalCode: "50180", city: "AGNEAUX", lat: 49.112083, lon: -1.131208},
+        {name: "ST LOUIS", address: "3 RUE DES ENTREPRENEURS PARC DU CHATEAU D EAU", postalCode: "68300", city: "ST LOUIS", lat: 47.595435, lon: 7.552539},
+        {name: "ST MALO", address: "ZAC DE LA MADELEINE RUE DE LA SAULAIE", postalCode: "35400", city: "SAINT MALO", lat: 48.622578, lon: -1.991464},
+        {name: "ST MARCEL", address: "RUE DES CHAUMES", postalCode: "27950", city: "SAINT MARCEL", lat: 49.100988, lon: 1.455075},
+        {name: "ST MARTIN D HERES", address: "ZONE INDUSTRIELLE DE CHAMP ROMAN", postalCode: "38400", city: "SAINT MARTIN D'HERES", lat: 45.18415, lon: 5.774587},
+        {name: "ST MAUR", address: "Lieu Dit Piece de la Nourat Zone Commercial Cap Sud Boulevard du Franc", postalCode: "36250", city: "ST MAUR", lat: 46.791388, lon: 1.660621},
+        {name: "ST MAXIMIN", address: "ZAC DU BOIS DES FENETRES 215 RUE DE L EGALITE", postalCode: "60740", city: "ST MAXIMIN", lat: 49.238733, lon: 2.466486},
+        {name: "ST MAXIMIN LA STE BAUME", address: "223 AVENUE DE LA MAXIMINOISE", postalCode: "83470", city: "ST MAXIMIN LA STE BAUME", lat: 43.454795, lon: 5.846424},
+        {name: "ST ORENS", address: "4, avenue de Toulouse", postalCode: "31650", city: "ST ORENS DE GAMEVILLE", lat: 43.564291, lon: 1.514346},
+        {name: "ST PAIR SUR MER", address: "GEANT CASINO 189 Route de Jersey Route D Avranches", postalCode: "50380", city: "ST PAIR SUR MER", lat: 48.813921, lon: -1.5463},
+        {name: "ST PALAIS", address: "234 ROUTE DE SABRENIA", postalCode: "64120", city: "AMENDEUIX - ONEIX", lat: 43.330749, lon: -1.038573},
+        {name: "ST PAUL LES DAX", address: "1442, BOULEVARD SAINT-VINCENT DE PAUL", postalCode: "40990", city: "SAINT-PAUL-LES-DAX", lat: 43.730767, lon: -1.036007},
+        {name: "ST PIERRE DES CORPS", address: "AVENUE JACQUES DUCLOS", postalCode: "37700", city: "ST PIERRE DES CORPS", lat: 47.381066, lon: 0.73299},
+        {name: "ST POL SUR TERNOISE", address: "135 RUE DE BÉTHUNE", postalCode: "62130", city: "ST POL SUR TERNOISE", lat: 50.384191, lon: 2.343489},
+        {name: "ST PRIEST", address: "91 ROUTE DE GRENOBLE", postalCode: "69800", city: "ST PRIEST", lat: 45.707065, lon: 4.987027},
+        {name: "ST QUENTIN", address: "11 BIS BOULEVARD GAMBETTA", postalCode: "2100", city: "SAINT QUENTIN", lat: 49.84419, lon: 3.294859},
+        {name: "ST QUENTIN FAYET", address: "CENTRE COMMERCIAL AUCHAN", postalCode: "2100", city: "ST QUENTIN", lat: 50.734671, lon: 1.674766},
+        {name: "ST SEBASTIEN", address: "4 Rue Walt Disney", postalCode: "44230", city: "ST SEBASTIEN", lat: 47.193427, lon: -1.491167},
+        {name: "ST SENIER SOUS AVRANCHES", address: "8-10 RUE VICTOR LEMARCHAND", postalCode: "50300", city: "ST SENIER SOUS AVRANCHES", lat: 48.678298, lon: -1.337909},
+        {name: "STRASBOURG", address: "16 RUE SENGENWALD", postalCode: "67000", city: "STRASBOURG", lat: 48.577339, lon: 7.751912},
+        {name: "STRASBOURG CRONENBOURG", address: "142 ROUTE D' OBERHAUSBERGEN", postalCode: "67200", city: "STRASBOURG", lat: 48.595673, lon: 7.709146},
+        {name: "STRASBOURG HAUTEPIERRE", address: "RUE CERF BERR", postalCode: "67200", city: "STRASBOURG", lat: 48.58631, lon: 7.691088},
+        {name: "TALENCE", address: "RUE PACARIS CC LECLERC", postalCode: "33400", city: "TALENCE", lat: 44.798533, lon: -0.582191},
+        {name: "TARARE", address: "AVENUE EDOUARD HERRIOT", postalCode: "69170", city: "TARARE", lat: 45.890678, lon: 4.446022},
+        {name: "TARBES IBOS", address: "57 AVENUE DU POUEY D817", postalCode: "65420", city: "IBOS", lat: 43.238391, lon: 0.038493},
+        {name: "TASSIN", address: "14 AVE VICTOR HUGO", postalCode: "69160", city: "TASSIN LA DEMI-LUNE", lat: 45.769565, lon: 4.78775},
+        {name: "THIAIS", address: "Centre Cial Regional Belle Epine", postalCode: "94320", city: "THIAIS", lat: 48.756329, lon: 2.371236},
+        {name: "THIERS", address: "ZI DE FELET D906", postalCode: "63300", city: "THIERS", lat: 45.854826, lon: 3.506265},
+        {name: "THIONVILLE", address: "4 RUE CAMILLE DU GAST", postalCode: "57100", city: "THIONVILLE", lat: 49.349199, lon: 6.148808},
+        {name: "THONON", address: "LES HAUTS DE MARCLAZ 16 RUE DU PAMPHIOT", postalCode: "74200", city: "THONON LES BAINS", lat: 46.352634, lon: 6.443121},
+        {name: "THOUARS", address: "RUE DU CHAMP DE PLAISANCE", postalCode: "79100", city: "THOUARS", lat: 46.949155, lon: -0.249228},
+        {name: "TIGNIEU JAMEYZIEU", address: "3 Boulevard Ampere Zone des Quatre Buissons Est", postalCode: "38230", city: "TIGNIEU JAMEYZIEU", lat: 45.752376, lon: 5.197503},
+        {name: "TONNAY CHARENTE", address: "109 AVENUE D AUNIS", postalCode: "17430", city: "TONNAY CHARENTE", lat: 45.950172, lon: -0.926679},
+        {name: "TORCY", address: "1 RUE DES COUTURES ZI DE TORCY", postalCode: "77200", city: "TORCY", lat: 48.842977, lon: 2.656473},
+        {name: "TOUL", address: "ZONE COMMERCIALE E. LECLERC POLE COMMERCIAL JEANNE D'ARC 8, RUE DU PONT DE VILLEY", postalCode: "54200", city: "DOMMARTIN-LES-TOUL", lat: 48.672389, lon: 5.922219},
+        {name: "TOULON ARISTIDE BRIAND", address: "601 AVE ARISTIDE BRIAND", postalCode: "83200", city: "TOULON", lat: 43.127186, lon: 5.902584},
+        {name: "TOULON LA GARDE", address: "31 av Camille Desmoulins", postalCode: "83130", city: "LA GARDE", lat: 43.139638, lon: 6.019376},
+        {name: "TOULON OLLIOULES", address: "Chemin Communal no 7", postalCode: "83190", city: "OLLIOULES", lat: 43.228489, lon: 5.818861},
+        {name: "TOULON PONT DU LAS", address: "652 AVE DU MARECHAL FOCH QUARTIER PONT DU LAS", postalCode: "83200", city: "TOULON", lat: 43.490639, lon: 5.740085},
+        {name: "TOULOUSE COLOMIERS", address: "32 CHEMIN DE LA SALVETAT", postalCode: "31770", city: "COLOMIERS", lat: 43.60504, lon: 1.30565},
+        {name: "TOULOUSE GRAMONT", address: "12 Chemin de Gabardie", postalCode: "31200", city: "TOULOUSE", lat: 43.640172, lon: 1.483681},
+        {name: "TOULOUSE MONTAUDRAN", address: "175 RTE DE REVEL", postalCode: "31400", city: "TOULOUSE", lat: 43.572854, lon: 1.494968},
+        {name: "TOULOUSE PIMPE", address: "55  BOULEVARD DE SUISSE", postalCode: "31200", city: "TOULOUSE", lat: 43.615309, lon: 1.420959},
+        {name: "TOULOUSE PURPAN", address: "19 ROUTE DE BAYONNE", postalCode: "31300", city: "TOULOUSE", lat: 43.60783, lon: 1.394856},
+        {name: "TOULOUSE PURPAN FMR", address: "39-41 Route de Bayonne", postalCode: "31300", city: "TOULOUSE", lat: 43.607959, lon: 1.393268},
+        {name: "TOULOUSE USA", address: "31 AVENUE DES ETATS UNIS", postalCode: "31200", city: "TOULOUSE", lat: 43.628574, lon: 1.432968},
+        {name: "TOURCOING", address: "30 RUE DE WAILLY", postalCode: "59200", city: "TOURCOING", lat: 50.72338, lon: 3.155606},
+        {name: "TOURS", address: "56 AVE DE GRAMMONT", postalCode: "37000", city: "TOURS", lat: 47.380444, lon: 0.692881},
+        {name: "TOURS NORD", address: "CENTRE COMMERCIAL LA PETITE ARCHE", postalCode: "37100", city: "TOURS", lat: 0, lon: 0},
+        {name: "TOURS ST CYR SUR LOIRE", address: "Rue Eugene Chevreul Parc d'Activités du Clos de la Lande", postalCode: "37540", city: "ST CYR SUR LOIRE", lat: 47.426033, lon: 0.662967},
+        {name: "TOURVILLE", address: "ZAC CLOS AUX ANTES", postalCode: "76410", city: "TOURVILLE LA RIVIERE", lat: 49.327363, lon: 1.10004},
+        {name: "TRANS EN PROVENCE", address: "RN 555 LA FOUX", postalCode: "83720", city: "TRANS EN PROVENCE", lat: 43.489436, lon: 6.496411},
+        {name: "TREMBLAY EN FRANCE", address: "62 - 68 ROUTE DES PETITS PONTS", postalCode: "93290", city: "TREMBLAY EN FRANCE", lat: 48.964123, lon: 2.565136},
+        {name: "TRETS", address: "16 ZONE D ACTIVITE LA BURLIERE", postalCode: "13530", city: "TRETS", lat: 43.454528, lon: 5.678108},
+        {name: "TRIE CHATEAU", address: "22 C/CIAL DE LA CROIX SAINT-JACQUES RD 981", postalCode: "60590", city: "TRIE CHATEAU", lat: 49.288149, lon: 1.802296},
+        {name: "TRIGNAC", address: "ZAC DE SAVINE RUE DES AIGRETTES", postalCode: "44570", city: "TRIGNAC", lat: 47.294074, lon: -2.209828},
+        {name: "TROYES - ST PARRES", address: "ZONE COMMERCIALE E.LECLERC 15 RUE DES MAGNOLIAS", postalCode: "10410", city: "SAINT-PARRES-AUX-TERTRES", lat: 48.29487, lon: 4.128333},
+        {name: "TULLE", address: "ZAC CUEILLE RUE DU DOCTEUR RAMON", postalCode: "19000", city: "TULLE", lat: 45.254502, lon: 1.759365},
+        {name: "UZES", address: "6 - 8 AVENUE  MARECHAL FOCH", postalCode: "30700", city: "UZES", lat: 44.008605, lon: 4.418369},
+        {name: "VALENCE", address: "BLD GUSTAVE ANDRE LIEUDIT LA CROZETTE", postalCode: "26000", city: "VALENCE", lat: 44.940568, lon: 4.910799},
+        {name: "VALENCIENNES", address: "26 AVE DU SERGENT CAIRNS", postalCode: "59300", city: "VALENCIENNES", lat: 50.350902, lon: 3.524034},
+        {name: "VALENTIGNEY", address: "20, RUE COMBOTTE ZA NORD", postalCode: "25700", city: "VALENTIGNEY", lat: 47.483515, lon: 6.825724},
+        {name: "VALLAURIS", address: "Chemin St Bernard ZAC La Farigoule", postalCode: "6220", city: "VALLAURIS", lat: 43.592285, lon: 7.056252},
+        {name: "VALLET", address: "ROUTE D'ANCENIS ESPACE LES DORICES", postalCode: "44330", city: "VALLET", lat: 47.165047, lon: -1.265748},
+        {name: "VANDOEUVRE LES NANCY", address: "2 AVENUE DE BOURGOGNE ALLÉE DES PRUNUS", postalCode: "54500", city: "VANDOEUVRE LES NANCY", lat: 48.651469, lon: 6.164441},
+        {name: "VANNES", address: "LOTISSEMENT DE PARC LANN RUE GAY LUSSAC", postalCode: "56000", city: "VANNES", lat: 47.666914, lon: -2.787617},
+        {name: "VARENNES SUR SEINE", address: "30 Route du Petit Fossard", postalCode: "77130", city: "VARENNES-SUR-SEINE", lat: 48.366883, lon: 2.957223},
+        {name: "VARENNES VAUZELLES", address: "22 BLD C. DAGONNEAU", postalCode: "58640", city: "VARENNES VAUZELLES", lat: 47.013251, lon: 3.15011},
+        {name: "VAULX EN VELIN", address: "158 AVE FRANKLIN ROOSEVELT", postalCode: "69120", city: "VAULX EN VELIN", lat: 45.755557, lon: 4.935397},
+        {name: "VAUVERT", address: "ZAC COTE SOLEIL", postalCode: "30600", city: "VAUVERT", lat: 43.709676, lon: 4.27021},
+        {name: "VAUX SUR MER", address: "RUE GEORGES CLAUDE", postalCode: "17640", city: "VAUX SUR MER", lat: 45.647171, lon: -1.047127},
+        {name: "VELIZY", address: "4, rue Dewoitine ZA de Velizy", postalCode: "78140", city: "VELIZY", lat: 48.782881, lon: 2.214489},
+        {name: "VELIZY", address: "ZONE D ACTIVITE DE VELIZY 4 RUE DEWOITINE", postalCode: "78140", city: "VELIZY VILLACOUBLAY", lat: 48.782881, lon: 2.214489},
+        {name: "VENDOME", address: "1 RUE ALBERT EINSTEIN", postalCode: "41100", city: "VENDOME", lat: 47.779525, lon: 1.077723},
+        {name: "VENELLES", address: "ALLEE DE LA CARRAIRE", postalCode: "13770", city: "VENELLES", lat: 43.580585, lon: 5.472006},
+        {name: "VENISSIEUX", address: "Allee des Savoies", postalCode: "69200", city: "VENISSIEUX", lat: 45.716748, lon: 4.856659},
+        {name: "VERDUN", address: "ZONE COMMERCIALE CORA 2 RUE PAUL LINTIER", postalCode: "55100", city: "VERDUN", lat: 49.144886, lon: 5.411192},
+        {name: "VERDUN HAUDAINVILLE", address: "Boulevard de l'Europe", postalCode: "55100", city: "HAUDAINVILLE", lat: 49.140802, lon: 5.409225},
+        {name: "VERNIOLLE", address: "ZONE DE LA GRAUSSETTE PARC TECHNOLOGIQUE DELTA SUD", postalCode: "9340", city: "VERNIOLLE", lat: 43.07827, lon: 1.637433},
+    { "name": "VERVINS", "address": "RUE D HIRSON ZONE INDUSTRIELLE DE LA BRIQUETERIE", "postalCode": "02140", "city": "VERVINS", "lat": 49.8331, "lon": 3.9015 },
+    { "name": "VESOUL", "address": "28 TER BOULEVARD DES ALLIES", "postalCode": "70000", "city": "VESOUL", "lat": 47.616998, "lon": 6.159281 },
+    { "name": "VEZIN LE COQUET", "address": "173 ROUTE DE LORIENT", "postalCode": "35132", "city": "VEZIN LE COQUET", "lat": 48.104868, "lon": -1.73502 },
+    { "name": "VICHY", "address": "AVE DES AILES CC CORA", "postalCode": "03200", "city": "VICHY", "lat": 46.14241, "lon": 3.415171 },
+    { "name": "VIERZON", "address": "14 AVENUE DU 19 MARS 1962 ZONE COMMERCIALE SUPER U", "postalCode": "18100", "city": "VIERZON", "lat": 47.238812, "lon": 2.090535 },
+    { "name": "VIGNEUX SUR SEINE", "address": "CCIAL AUCHAN VAL DOLY", "postalCode": "91270", "city": "VIGNEUX-SUR-SEINE", "lat": 48.701016, "lon": 2.429901 },
+    { "name": "VILLABE", "address": "12 Avenue des Courtes Epluches", "postalCode": "91100", "city": "VILLABE", "lat": 48.585646, "lon": 2.451193 },
+    { "name": "VILLARS", "address": "Chemin Montravel", "postalCode": "42390", "city": "VILLARS", "lat": 45.474718, "lon": 4.35062 },
+    { "name": "VILLE LA GRAND", "address": "6 RUE CHANTEMERLE", "postalCode": "74100", "city": "VILLE LA GRAND", "lat": 46.202146, "lon": 6.268204 },
+    { "name": "VILLEBON", "address": "2 AVENUE DE LA PLESSE CENTRE COMMERCIAL VILLEBON 2 3eme niveau", "postalCode": "91140", "city": "VILLEBON-SUR-YVETTE", "lat": 48.703065, "lon": 2.253779 },
+    { "name": "VILLEFRANCHE DE ROUERGUE", "address": "ROUTE DE MONTAUBAN D911", "postalCode": "12200", "city": "VILLEFRANCHE DE ROUERGUE", "lat": 44.360592, "lon": 2.008862 },
+    { "name": "VILLEFRANCHE SUR SAONE", "address": "353 AVE EDOUARD HERRIOT", "postalCode": "69400", "city": "VILLEFRANCHE SUR SAONE", "lat": 45.978518, "lon": 4.724343 },
+    { "name": "VILLEJUIF", "address": "116 BLD MAXIME GORKI", "postalCode": "94800", "city": "VILLEJUIF", "lat": 48.793371, "lon": 2.368869 },
+    { "name": "VILLEMOMBLE", "address": "104 AVENUE DE ROSNY", "postalCode": "93250", "city": "VILLEMOMBLE", "lat": 48.883181, "lon": 2.499138 },
+    { "name": "VILLENAVE D ORNON", "address": "425 RTE DE TOULOUSE", "postalCode": "33140", "city": "VILLENAVE D'ORNON", "lat": 44.791943, "lon": -0.567201 },
+    { "name": "VILLENEUVE D ASCQ", "address": "150 BLD DE L'OUEST", "postalCode": "59650", "city": "VILLENEUVE D'ASCQ", "lat": 50.635424, "lon": 3.122088 },
+    { "name": "VILLENEUVE LES AVIGNON", "address": "97 AVENUE GENERAL LECLERC", "postalCode": "30400", "city": "VILLENEUVE LES AVIGNON", "lat": 43.95777, "lon": 4.778906 },
+    { "name": "VILLENEUVE LES BEZIERS", "address": "ZAE POLE MÉDITERRANÉE", "postalCode": "34420", "city": "VILLENEUVE LES BEZIERS", "lat": 43.320738, "lon": 3.292803 },
+    { "name": "VILLENEUVE LOUBET", "address": "ROUTE DU BORD DE MER", "postalCode": "06270", "city": "VILLENEUVE LOUBET", "lat": 43.648201, "lon": 7.128432 },
+    { "name": "VILLENEUVE SUR LOT", "address": "11 rue Marcel et Gaston Cavaille ZAE - de PARASOL", "postalCode": "47300", "city": "VILLENEUVE SUR LOT", "lat": 44.4087, "lon": 0.7047 },
+    { "name": "VILLEPINTE", "address": "BD ROBERT BALLANGER D115", "postalCode": "93420", "city": "VILLEPINTE", "lat": 48.957035, "lon": 2.543785 },
+    { "name": "VIRE", "address": "ROUTE DE CAEN", "postalCode": "14500", "city": "VIRE NORMANDIE", "lat": 48.852158, "lon": -0.88081 },
+    { "name": "VIROFLAY", "address": "190 AVE DU GENERAL LECLERC", "postalCode": "78220", "city": "VIROFLAY", "lat": 48.80401, "lon": 2.170643 },
+    { "name": "VIRY CHATILLON", "address": "64-66 AVENUE DU GENERAL DE GAULLE RN7", "postalCode": "91170", "city": "VIRY CHATILLON", "lat": 48.675342, "lon": 2.386226 },
+    { "name": "VIRY NOUREUIL", "address": "ZAC LES TERRAGES LIEUDIT LES BOUILLONS", "postalCode": "02300", "city": "VIRY NOUREUIL", "lat": 49.640057, "lon": 3.253025 },
+    { "name": "VITROLLES", "address": "RN 113 CC Vitrolles Espace", "postalCode": "13127", "city": "VITROLLES", "lat": 43.471545, "lon": 5.231173 },
+    { "name": "VITROLLES", "address": "511 AVENUE JEAN MONNET", "postalCode": "13127", "city": "VITROLLES", "lat": 43.425088, "lon": 5.282623 },
+    { "name": "VITRY LE FRANCOIS", "address": "50 RUE FAUBOURG DE CHALONS", "postalCode": "51300", "city": "VITRY LE FRANCOIS", "lat": 48.731401, "lon": 4.589827 },
+    { "name": "VOIRON", "address": "1, AVENUE JOHN KENNEDY", "postalCode": "38500", "city": "VOIRON", "lat": 45.358443, "lon": 5.592839 },
+    { "name": "WISSEMBOURG", "address": "38 ROUTE DE LA PÉPINIÈRE", "postalCode": "67160", "city": "WISSEMBOURG", "lat": 49.028867, "lon": 7.946474 },
+    { "name": "WITTENHEIM", "address": "9 route de Soultz", "postalCode": "68270", "city": "WITTENHEIM", "lat": 47.803756, "lon": 7.311017 },
+    { "name": "YTRAC", "address": "RN 122 ZAC DE LA SABLIERE", "postalCode": "15130", "city": "YTRAC", "lat": 44.893342, "lon": 2.397887 },
+    { "name": "YVETOT - STE MARIE", "address": "17 Avenue René Coty", "postalCode": "76190", "city": "SAINTE MARIE DES CHAMPS", "lat": 49.622339, "lon": 0.772434 },
+    { "name": "ZOO DE BEAUVAL", "address": "ZOOPARC DE BEAUVAL", "postalCode": "41110", "city": "SAINT AIGNAN", "lat": 47.247084, "lon": 1.350756 }
+                // Ajoutez le reste de vos landmarks ici
+            ];
+
+            const iconCache = {};
+            function getIcon(color) {
+                if (!iconCache[color]) {
+                    iconCache[color] = L.icon({
+                        iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`,
+                        iconSize: [25, 41],
+                        iconAnchor: [12, 41]
+                    });
+                }
+                return iconCache[color];
+            }
+
+            function createPopupContent(landmark) {
+                return `
+                    <div>
+                        <h4>${landmark.name}</h4>
+                        <p title="${landmark.address}"><strong>Adresse:</strong> ${landmark.address}</p>
+                        <p><strong>Code postal:</strong> ${landmark.postalCode}</p>
+                        <p><strong>Ville:</strong> ${landmark.city}</p>
+                    </div>
+                `;
+            }
+
+            const markers = landmarks.map(landmark => {
+                const marker = L.marker([landmark.lat, landmark.lon], {
+                    icon: getIcon('blue')
+                });
+                const popup = L.popup({className: 'custom-popup'})
+                    .setContent(createPopupContent(landmark));
+                
+                marker.bindPopup(popup);
+                marker.on('click', () => onMarkerClick(landmark, marker));
+                
+                popup.on('remove', () => {
+                    resetView();
+                });
+                
+                marker.addTo(map);
+                return marker;
+            });
+
+            function onMarkerClick(landmark, marker) {
+                if (!selectedStart) {
+                    selectedStart = landmark;
+                    startInput.value = landmark.name;
+                    marker.setIcon(getIcon('green'));
+                    destinationContainer.style.display = 'block';
+                } else if (!selectedEnd) {
+                    selectedEnd = landmark;
+                    endInput.value = landmark.name;
+                    marker.setIcon(getIcon('red'));
+                    calculateRoute();
+                } else {
+                    resetRoute();
+                    selectedStart = landmark;
+                    startInput.value = landmark.name;
+                    marker.setIcon(getIcon('green'));
+                    destinationContainer.style.display = 'block';
+                }
+            }
+
+            function resetView() {
+                map.setView([46.603354, 1.888334], 6);
+            }
+
+            async function fetchRoute(start, end) {
+                const url = `https://api.openrouteservice.org/v2/directions/driving-car?api_key=${API_KEY}&start=${start}&end=${end}`;
+                try {
+                    const response = await fetch(url);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return await response.json();
+                } catch (error) {
+                    console.error('Erreur lors de la récupération de l\'itinéraire:', error);
+                    throw error;
+                }
+            }
+
+            async function calculateRoute() {
+                if (!selectedStart || !selectedEnd) return;
+
+                const start = `${selectedStart.lon},${selectedStart.lat}`;
+                const end = `${selectedEnd.lon},${selectedEnd.lat}`;
+
+                try {
+                    const data = await fetchRoute(start, end);
+                    
+                    if (routingLayer) {
+                        map.removeLayer(routingLayer);
+                    }
+                    
+                    const coords = data.features[0].geometry.coordinates;
+                    const latLngs = coords.map(coord => [coord[1], coord[0]]);
+                    routingLayer = L.polyline(latLngs, {
+                        color: '#1a73e8',
+                        weight: 5,
+                        opacity: 0.7,
+                        dashArray: '10, 10'
+                    }).addTo(map);
+
+                    const distance = (data.features[0].properties.segments[0].distance / 1000).toFixed(2);
+                    const durationMinutes = data.features[0].properties.segments[0].duration / 60;
+                    const hours = Math.floor(durationMinutes / 60);
+                    const minutes = Math.round(durationMinutes % 60);
+                    
+                    const routeInfoContent = `
+                        <h3>Itinéraire</h3>
+                        <p><strong>De:</strong> ${selectedStart.name}</p>
+                        <p><strong>À:</strong> ${selectedEnd.name}</p>
+                        <p><strong>Distance:</strong> ${distance} km</p>
+                        <p><strong>Durée estimée:</strong> ${hours}h ${minutes}min</p>
+                    `;
+
+                    document.getElementById('route-info-content').innerHTML = routeInfoContent;
+                    routeInfo.classList.add('active');
+
+                    map.fitBounds(routingLayer.getBounds(), {padding: [50, 50]});
+                } catch (error) {
+                    alert("Erreur lors du calcul de l'itinéraire. Veuillez réessayer.");
+                }
+            }
+
+            function resetRoute() {
+                markers.forEach(marker => marker.setIcon(getIcon('blue')));
+                if (routingLayer) {
+                    map.removeLayer(routingLayer);
+                }
+                selectedStart = null;
+                selectedEnd = null;
+                startInput.value = '';
+                endInput.value = '';
+                routeInfo.classList.remove('active');
+                destinationContainer.style.display = 'none';
+                resetView();
+            }
+
+            document.getElementById('directions-button').addEventListener('click', function() {
+                destinationContainer.style.display = destinationContainer.style.display === 'none' ? 'block' : 'none';
+            });
+
+            map.on('click', function(e) {
+                if (!selectedStart || !selectedEnd) return;
+                resetRoute();
+            });
+
+            document.getElementById('close-route-info').addEventListener('click', resetRoute);
+
+            startInput.addEventListener('change', function(e) {
+                const searchTerm = e.target.value;
+                const foundLandmark = landmarks.find(l => l.name === searchTerm);
+                if (foundLandmark) {
+                    onMarkerClick(foundLandmark, markers.find(m => m.getLatLng().lat === foundLandmark.lat && m.getLatLng().lng === foundLandmark.lon));
+                }
+            });
+
+            endInput.addEventListener('change', function(e) {
+                const searchTerm = e.target.value;
+                const foundLandmark = landmarks.find(l => l.name === searchTerm);
+                if (foundLandmark && selectedStart) {
+                    selectedEnd = foundLandmark;
+                    endInput.value = foundLandmark.name;
+                    markers.find(m => m.getLatLng().lat === foundLandmark.lat && m.getLatLng().lng === foundLandmark.lon).setIcon(getIcon('red'));
+                    calculateRoute();
+                }
+            });
+
+            const mapMargin = 50;
+            map.setView(map.getCenter(), map.getZoom(), {
+                paddingTopLeft: [mapMargin, mapMargin],
+                paddingBottomRight: [mapMargin, mapMargin]
+            });
+        });
+    </script>
+</body>
+</html>
