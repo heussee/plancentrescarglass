@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UNICORE - Présentation pour le Service RD</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/lucide.min.js"></script>
+    <style>
+        :root {
+            --carglass-red: #D7303E;
+            --carglass-yellow: #FFD700;
+            --text-color: #333;
+            --background-color: #f5f5f5;
+            --column-background: #ffffff;
+        }
+        
+        body, html {
+            margin: 0;
+            padding: 0;
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            overflow-x: hidden;
+            scroll-behavior: smooth;
+        }
+        
+        .slide-container {
+            height: 100vh;
+            overflow-y: auto;
+            scroll-snap-type: y mandatory;
+        }
+        
+        .slide {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            background-color: #fff;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            position: relative;
+            overflow: hidden;
+            scroll-snap-align: start;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        
+        .slide::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: linear-gradient(to right, var(--carglass-red), var(--carglass-yellow));
+        }
+        
+        h1, h2, h3 {
+            font-family: 'Montserrat', sans-serif;
+            color: var(--carglass-red);
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            animation: fadeInUp 1s ease-out;
+        }
+        
+        h1 { font-size: 3em; }
+        h2 { font-size: 2.0em; }
+        h3 { font-size: 1.5em; }
+        
+        .subtitle {
+            color: var(--carglass-yellow);
+            font-size: 1.5em;
+            margin-bottom: 30px;
+            font-weight: 300;
+            animation: fadeInUp 1s ease-out 0.5s both;
+        }
+        
+        .content {
+            max-width: 90%;
+            margin: 0 auto;
+            position: relative;
+            z-index: 2;
+            overflow-y: auto;
+            max-height: 80vh;
+            padding: 20px;
+        }
+        
+        .background-element {
+            position: absolute;
+            opacity: 0.1;
+            z-index: 1;
+            transition: all 0.5s ease-in-out;
+        }
+        
+        .circle {
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            background-color: var(--carglass-yellow);
+            top: -50px;
+            left: -50px;
+            animation: pulse 4s infinite alternate;
+        }
+        
+        .square {
+            width: 200px;
+            height: 200px;
+            background-color: var(--carglass-red);
+            bottom: -50px;
+            right: -50px;
+            transform: rotate(45deg);
+            animation: rotate 20s linear infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.1); }
+        }
+        
+        @keyframes rotate {
+            0% { transform: rotate(45deg); }
+            100% { transform: rotate(405deg); }
+        }
+        
+        .list-styled {
+            list-style-type: none;
+            padding: 0;
+            text-align: left;
+        }
+        
+        .list-styled li {
+            margin-bottom: 10px;
+            padding-left: 30px;
+            position: relative;
+            animation: fadeInLeft 1s ease-out;
+        }
+        
+        .list-styled li::before {
+            content: '✓';
+            color: var(--carglass-red);
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            font-weight: bold;
+        }
+        
+        .columns {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-around;
+            gap: 20px;
+        }
+        
+        .column {
+            flex: 1 1 230px;
+            max-width: 500px;
+            margin-bottom: 20px;
+            padding: 20px;
+            background-color: var(--column-background);
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+            animation: fadeInUp 1s ease-out;
+        }
+        
+        .column:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .highlight {
+            color: var(--carglass-red);
+            font-weight: bold;
+        }
+        
+        .icon {
+            font-size: 2.5em;
+            margin-bottom: 15px;
+            color: var(--carglass-red);
+            animation: bounce 2s infinite;
+        }
+        
+        .navigation {
+            position: fixed;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            z-index: 1000;
+        }
+        
+        .nav-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: rgba(215, 48, 62, 0.5);
+            margin: 5px 0;
+            cursor: pointer;
+            transition: background-color 0.3s ease-in-out, transform 0.3s ease-in-out;
+        }
+        
+        .nav-dot:hover, .nav-dot.active {
+            background-color: var(--carglass-red);
+            transform: scale(1.2);
+        }
+        
+        .logo {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 150px;
+            height: auto;
+            z-index: 1000;
+        }
+        .logo img {
+            width: 100%;
+            height: auto;
+            filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.3));
+            transition: transform 0.3s ease-in-out;
+        }
+        .logo:hover img {
+            transform: scale(1.05);
+        }
+        
+        .signature {
+            position: absolute;
+            bottom: 10px;
+            right: 20px;
+            font-size: 0.8em;
+            font-style: italic;
+            color: var(--carglass-red);
+        }
+        
+        .slide-indicator {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.8em;
+            color: var(--text-color);
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes fadeInLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {
+                transform: translateY(0);
+            }
+            40% {
+                transform: translateY(-30px);
+            }
+            60% {
+                transform: translateY(-15px);
+            }
+        }
+        
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        @keyframes scaleIn {
+            from {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        
+        .highlighted-title {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: var(--carglass-red);
+            text-align: center;
+            margin: 20px 0;
+            padding: 10px;
+            border: 2px solid var(--carglass-red);
+            border-radius: 10px;
+            background-color: var(--carglass-yellow);
+            position: relative;
+        }
+
+        .highlighted-title::after {
+            content: '⬆';
+            position: absolute;
+            top: 50px;
+            left: 44%;
+            transform: translateX(-50%);
+            font-size: 2em;
+            color: #4CAF50;  /* Vert */
+            animation: bounce 1s infinite;
+        }
+        
+        @media (max-width: 768px) {
+            h1 { font-size: 2em; }
+            h2 { font-size: 1.8em; }
+            h3 { font-size: 1.5em; }
+            .subtitle { font-size: 1.2em; }
+            .column { flex: 1 1 100%; max-width: none; }
+            .navigation { right: 10px; }
+            .content { max-width: 95%; }
+        }
+    </style>
+</head>
+<body>
+<div class="slide-container">
+    <div id="slide1" class="slide">
+        <div class="logo">
+            <img src="file:///Users/heusse/Downloads/logocarglass.png" alt="Logo Carglass">
+        </div>
+        <div class="background-element circle"></div>
+        <div class="background-element square"></div>
+        <div class="content">
+            <h1>UNICORE</h1>
+            <p class="subtitle">Révolutionner le Service RD</p>
+            <p>Une solution innovante pour optimiser notre assistance aux clients</p>
+        </div>
+        <div class="signature">Créé par Koroghli Housseyne</div>
+        <div class="slide-indicator">1 / 6</div>
+    </div>
+    <div id="slide2" class="slide">
+        <div class="logo">
+            <img src="file:///Users/heusse/Downloads/logocarglass.png" alt="Logo Carglass">
+        </div>
+        <div class="background-element circle"></div>
+        <div class="content">
+            <h2>Nos Objectifs</h2>
+            <ul class="list-styled"> 
+		        <li>Accéder <span class="highlight"> instantanément </span> aux informations essentielles </li>
+		        <li>Augmenter la <span class="highlight"> productivité </span></li>
+                <li>Augmenter le <span class="highlight">taux de conversion </span></li>
+                <li>Augmenter la <span class="highlight">satisfaction client </span></li>
+            </ul>
+        </div>
+        <div class="signature">Créé par Koroghli Housseyne</div>
+        <div class="slide-indicator">2 / 6</div>
+    </div>
+    <div id="slide3" class="slide">
+        <div class="logo">
+            <img src="file:///Users/heusse/Downloads/logocarglass.png" alt="Logo Carglass">
+        </div>
+        <div class="background-element square"></div>
+        <div class="content">
+            <h2>Fonctionnalités Clés pour le Service RD</h2>
+            <div class="columns">
+                <div class="column">
+                    <div class="icon">🗺️</div>
+                    <p>Filtrage avancé des centres selon les critères clients</p>
+                </div>
+                <div class="column">
+                    <div class="icon">📍</div>
+                    <p>Calcul d'itinéraires optimisés</p>
+                </div>
+                <div class="column">
+                    <div class="icon">⚡</div>
+                    <p>Accès immédiat aux informations recherchées</p>
+                </div>
+            </div>
+        </div>
+        <div class="signature">Créé par Koroghli Housseyne</div>
+        <div class="slide-indicator">3 / 6</div>
+    </div>
+    <div id="slide4" class="slide">
+        <div class="logo">
+            <img src="file:///Users/heusse/Downloads/logocarglass.png" alt="Logo Carglass">
+        </div>
+        <div class="background-element circle"></div>
+        <div class="content">
+            <h2>Avantages pour le Service RD</h2>
+            <div class="columns">
+                <div class="column">
+                    <div class="icon">⏱️</div>
+                    <p>Réduction du temps de traitement</p>
+                </div>
+                <div class="column">
+                    <div class="icon">📈</div>
+                    <p>Meilleure qualité de service (QS)</p>
+                </div>
+                <div class="column">
+                    <div class="icon">🎯</div>
+                    <p>Prise de décision facilitée</p>
+                </div>
+                <div class="column">
+                    <div class="icon">😊</div>
+                    <p>Hausse de la satisfaction des collaborateurs RD</p>
+                </div>
+            </div>
+        </div>
+	<div class="signature">Créé par Koroghli Housseyne</div>
+        <div class="slide-indicator">4 / 6</div>
+    </div>
+    <div id="slide5" class="slide">
+        <div class="logo">
+            <img src="file:///Users/heusse/Downloads/logocarglass.png" alt="Logo Carglass">
+        </div>
+        <div class="background-element circle"></div>
+        <div class="content">
+            <h2>Avant / Après</h2>
+            <div class="columns">
+                <div class="column">
+                    <h4>Exemples des Méthodes actuelles :</h4>
+                    <ul class="list-styled">
+                        <li>Aller sur ACDC pour définir avec le client son trajet d'un point A à un point B</li>
+                        <li>Revenir sans cesse sur ACDC pour saisir les nouveaux trajets</li>
+                        <li>Ouvrir Google Maps pour définir le temps de trajet</li>
+                        <li>Aller sur my carglass et cliquer jusqu'à 3 fois pour trouver les RDA d'un centre </li>
+                        <li>Aller sur Teams pour accéder au fichier excel SALR et naviguer entre les onglets pour définir de quel service achat dépend le centre </li>
+                        <li>Aller sur la carte Tesla pour définir les centres tesla les plus proches</li>
+                        <li>Aller sur SRDV pour trouver un centre éligible UBER</li>
+                        <li>Rechercher le fichier excel pour le calcul des MD et la saisie des eurocodes</li>
+                        <li>Aller dans les e-mails pour être informé des actualités process</li>	
+                        <li>Aller sur Teams pour accéder au fichier excel STOP RD</li>
+                    </ul>
+                </div>
+                <div class="column">
+                    <h4>Avec UNICORE :</h4>
+                    <div class="highlighted-title">Aller sur UNICORE</div>
+                </div>
+            </div>
+        </div>
+        <div class="signature">Créé par Koroghli Housseyne</div>
+        <div class="slide-indicator">5 / 6</div>
+    </div>
+    <div id="slide6" class="slide">
+        <div class="logo">
+            <img src="file:///Users/heusse/Downloads/logocarglass.png" alt="Logo Carglass">
+        </div>
+        <div class="background-element square"></div>
+        <div class="content">
+            <h2>Prochaines Étapes : Test et Évaluation</h2>
+            <div class="columns">
+                <div class="column">
+                    <div class="icon">🧪</div>
+                    <h3>Phase de Test</h3>
+                    <ul class="list-styled">
+                        <li>5 personnes testeront Unicore</li>
+                        <li>Comparaison avec les méthodes actuelles</li>
+                        <li><span class="highlight">Focus sur le gain de temps par dossier</span></li>
+                        <li>Évaluation d'un outil unique vs. recherches multiples</li>
+                    </ul>
+                </div>
+                <div class="column">
+                    <div class="icon">📊</div>
+                    <h3>Mesures de Performance</h3>
+                    <ul class="list-styled">
+                        <li><span class="highlight">Temps moyen de traitement par dossier</span></li>
+                        <li><span class="highlight">Nombre de dossiers traités par heure</span></li>
+                        <li><span class="highlight">Qualité de Service (QS)</span></li>
+                        <li>Précision des propositions faites aux clients</li>
+                    </ul>
+                </div>
+                <div class="column">
+                    <div class="icon">🎯</div>
+                    <h3>Objectifs du Test</h3>
+                    <ul class="list-styled">
+                        <li>Comparer les performances avant/après</li>
+                        <li><span class="highlight">Quantifier la réduction du temps de traitement par dossier</span></li>
+                        <li><span class="highlight">Évaluer l'augmentation du volume de dossiers traités</span></li>
+                        <li><span class="highlight">Evaluer la Qualité de Service (QS)</span></li>
+                        <li>Évaluer l'efficacité de la centralisation des outils</li>
+                    </ul>
+                </div>
+            </div>
+            <p class="subtitle">Durée du test : 2 à 4 mois</p>
+        <div class="signature">Créé par Koroghli Housseyne</div>
+        <div class="slide-indicator">6 / 6</div>
+    </div>
+</div>
+
+<nav class="navigation">
+    <a href="#slide1" class="nav-dot" data-slide="1"></a>
+    <a href="#slide2" class="nav-dot" data-slide="2"></a>
+    <a href="#slide3" class="nav-dot" data-slide="3"></a>
+    <a href="#slide4" class="nav-dot" data-slide="4"></a>
+    <a href="#slide5" class="nav-dot" data-slide="5"></a>
+    <a href="#slide6" class="nav-dot" data-slide="6"></a>
+</nav>
+
+<script>
+    document.addEventListener('DOMContentLoaded', (event) => {
+        const navDots = document.querySelectorAll('.nav-dot');
+        const slides = document.querySelectorAll('.slide');
+        const slideContainer = document.querySelector('.slide-container');
+        
+        function updateActiveSlide() {
+            const scrollPosition = slideContainer.scrollTop;
+            const windowHeight = window.innerHeight;
+            
+            slides.forEach((slide, index) => {
+                const slideTop = slide.offsetTop;
+                const slideBottom = slideTop + slide.offsetHeight;
+                
+                if (scrollPosition >= slideTop && scrollPosition < slideBottom) {
+                    navDots.forEach(dot => dot.classList.remove('active'));
+                    navDots[index].classList.add('active');
+                    
+                    // Animation pour la page des objectifs
+                    if (index === 1) {
+                        animateObjectives();
+                    }
+                }
+            });
+        }
+        
+        function animateObjectives() {
+            const objectivesList = document.querySelectorAll('#slide2 .list-styled li');
+            objectivesList.forEach((item, index) => {
+                setTimeout(() => {
+                    item.style.opacity = '1';
+                    item.style.transform = 'translateX(0)';
+                }, index * 500);
+            });
+        }
+        
+        slideContainer.addEventListener('scroll', updateActiveSlide);
+        
+        navDots.forEach(dot => {
+            dot.addEventListener('click', (e) => {
+                e.preventDefault();
+                const targetSlide = document.querySelector(dot.getAttribute('href'));
+                targetSlide.scrollIntoView({ behavior: 'smooth' });
+            });
+        });
+        
+        // Initial update
+        updateActiveSlide();
+        
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+                e.preventDefault();
+                const currentSlide = document.querySelector('.nav-dot.active');
+                const nextSlide = currentSlide.nextElementSibling;
+                if (nextSlide) {
+                    nextSlide.click();
+                }
+            } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+                e.preventDefault();
+                const currentSlide = document.querySelector('.nav-dot.active');
+                const prevSlide = currentSlide.previousElementSibling;
+                if (prevSlide) {
+                    prevSlide.click();
+                }
+            }
+        });
+        
+        // Touch swipe navigation
+        let touchStartY = 0;
+        let touchEndY = 0;
+        
+        slideContainer.addEventListener('touchstart', (e) => {
+            touchStartY = e.changedTouches[0].screenY;
+        }, false);
+        
+        slideContainer.addEventListener('touchend', (e) => {
+            touchEndY = e.changedTouches[0].screenY;
+            handleSwipe();
+        }, false);
+        
+        function handleSwipe() {
+            if (touchEndY < touchStartY) {
+                // Swipe up
+                const currentSlide = document.querySelector('.nav-dot.active');
+                const nextSlide = currentSlide.nextElementSibling;
+                if (nextSlide) {
+                    nextSlide.click();
+                }
+            } else if (touchEndY > touchStartY) {
+                // Swipe down
+                const currentSlide = document.querySelector('.nav-dot.active');
+                const prevSlide = currentSlide.previousElementSibling;
+                if (prevSlide) {
+                    prevSlide.click();
+                }
+            }
+        }
+    });
+</script>
+</body>
+</html>
