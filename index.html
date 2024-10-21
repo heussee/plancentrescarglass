@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
@@ -337,6 +337,170 @@
             animation: bounce 1s infinite;
         }
         
+        .constat-container {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            width: 100%;
+            margin-top: 20px;
+            flex-wrap: wrap;
+            max-width: 1000px;
+        }
+        
+        .constat-item {
+            background-color: #fff;
+            border-radius: 50%;
+            width: 210px;
+            height: 210px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            margin: 20px;
+            cursor: pointer;
+            opacity: 0;
+            transform: translateY(-100vh);
+        }
+        
+        .constat-item::before {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            background: linear-gradient(45deg, var(--carglass-red), var(--carglass-yellow));
+            z-index: -1;
+            border-radius: 50%;
+            opacity: 1;
+        }
+        
+        .constat-item::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            right: 3px;
+            bottom: 3px;
+            background: #fff;
+            border-radius: 50%;
+            z-index: -1;
+            transition: all 0.3s ease;
+        }
+        
+        .constat-item:hover {
+            transform: scale(1.5);
+            z-index: 10;
+        }
+        
+        .constat-item:hover::after {
+            opacity: 0;
+        }
+        
+        .constat-icon {
+            font-size: 2.5em;
+            margin-bottom: 5px;
+            color: var(--carglass-red);
+            transition: all 0.3s ease;
+        }
+        
+        .constat-item:hover .constat-icon {
+            color: #fff;
+            transform: translateY(-20px);
+        }
+        
+        .constat-text {
+            font-size: 0.99em;
+            line-height: 1.3;
+            padding: 0 20px;
+            transition: all 0.3s ease;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+        
+        .constat-item:hover .constat-text {
+            -webkit-line-clamp: unset;
+            overflow: visible;
+            color: #fff;
+        }
+        
+        .interactive-section {
+            margin-top: 1px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            height: 40vh;
+        }
+        
+        .number-reveal {
+            font-size: 4em;
+            font-weight: bold;
+            color: var(--carglass-red);
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+        
+        .number-reveal.show {
+            opacity: 1;
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .arrow-down {
+            font-size: 4em;
+            color: var(--carglass-yellow);
+            margin: 20px 0;
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+        
+        .arrow-down.show {
+            opacity: 1;
+            animation: bounce 2s infinite;
+        }
+        
+        .reveal-text {
+            font-size: 1.2em;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.5s ease;
+            text-align: center;
+            max-width: 80%;
+            margin: 0 auto;
+        }
+        
+        .reveal-text.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        @keyframes dropIn {
+            0% {
+                opacity: 0;
+		transform: translateY(-100vh);
+            }
+            60% {
+                transform: translateY(20px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
         @media (max-width: 768px) {
             h1 { font-size: 2em; }
             h2 { font-size: 1.8em; }
@@ -345,6 +509,14 @@
             .column { flex: 1 1 100%; max-width: none; }
             .navigation { right: 10px; }
             .content { max-width: 95%; }
+            .constat-container {
+                flex-direction: column;
+            }
+            .constat-item {
+                width: 150px;
+                height: 150px;
+                margin-bottom: 20px;
+            }
         }
     </style>
 </head>
@@ -357,60 +529,50 @@
         <div class="background-element circle"></div>
         <div class="background-element square"></div>
         <div class="content">
-            <h1>UNICORE</h1>
-            <p class="subtitle">Révolutionner le Service RD</p>
-            <p>Une solution innovante pour optimiser notre assistance aux clients</p>
+            <h1>UNICORE</h1>  
+            <p class="subtitle">Une solution innovante pour optimiser notre assistance aux clients</p>
         </div>
         <div class="signature">Créé par Koroghli Housseyne</div>
-        <div class="slide-indicator">1 / 6</div>
+        <div class="slide-indicator">1 / 4</div>
     </div>
+
     <div id="slide2" class="slide">
         <div class="logo">
             <img src="logocarglass.png" alt="Logo Carglass">
         </div>
-        <div class="background-element circle"></div>
-        <div class="content">
-            <h2>Nos Objectifs</h2>
-            <ul class="list-styled"> 
-		        <li>Accéder <span class="highlight"> instantanément </span> aux informations essentielles </li>
-		        <li>Augmenter la <span class="highlight"> productivité </span></li>
-                <li>Augmenter le <span class="highlight">taux de conversion </span></li>
-                <li>Augmenter la <span class="highlight">satisfaction client </span></li>
-            </ul>
+        <h2>Constat</h2>
+        <div class="constat-container">
+            <div class="constat-item">
+                <div class="constat-icon">📧</div>
+                <div class="constat-text">Retour RH, nécessité de relire tous les courriels pour se tenir informé.</div>
+            </div>
+            <div class="constat-item">
+                <div class="constat-icon">💬</div>
+                <div class="constat-text">Process noyées dans les conversations d'équipe Teams.</div>
+            </div>
+            <div class="constat-item">
+                <div class="constat-icon">🗂️</div>
+                <div class="constat-text">Ouverture de multiples fichiers et outils nécessaires pour accomplir les tâches.</div>
+            </div>
+            <div class="constat-item">
+                <div class="constat-icon">⏳</div>
+                <div class="constat-text">Perte de temps considérable due à de longues recherches de solutions.</div>
+            </div>
+        </div>
+        <div class="interactive-section">
+            <div class="arrow-down" id="arrowDown">↓</div>
+            <div class="number-reveal" id="numberReveal">40</div>
+            <p class="reveal-text" id="revealText">Nombre de clics à effectuer pour gérer une gestion d'un logo ou d'une création de Eurocode, ainsi que les commandes externes</p>
         </div>
         <div class="signature">Créé par Koroghli Housseyne</div>
-        <div class="slide-indicator">2 / 6</div>
+        <div class="slide-indicator">2 / 4</div>
     </div>
+
     <div id="slide3" class="slide">
         <div class="logo">
             <img src="logocarglass.png" alt="Logo Carglass">
         </div>
         <div class="background-element square"></div>
-        <div class="content">
-            <h2>Fonctionnalités Clés pour le Service RD</h2>
-            <div class="columns">
-                <div class="column">
-                    <div class="icon">🗺️</div>
-                    <p>Filtrage avancé des centres selon les critères clients</p>
-                </div>
-                <div class="column">
-                    <div class="icon">📍</div>
-                    <p>Calcul d'itinéraires optimisés</p>
-                </div>
-                <div class="column">
-                    <div class="icon">⚡</div>
-                    <p>Accès immédiat aux informations recherchées</p>
-                </div>
-            </div>
-        </div>
-        <div class="signature">Créé par Koroghli Housseyne</div>
-        <div class="slide-indicator">3 / 6</div>
-    </div>
-    <div id="slide4" class="slide">
-        <div class="logo">
-            <img src="logocarglass.png" alt="Logo Carglass">
-        </div>
-        <div class="background-element circle"></div>
         <div class="content">
             <h2>Avantages pour le Service RD</h2>
             <div class="columns">
@@ -432,42 +594,11 @@
                 </div>
             </div>
         </div>
-	<div class="signature">Créé par Koroghli Housseyne</div>
-        <div class="slide-indicator">4 / 6</div>
-    </div>
-    <div id="slide5" class="slide">
-        <div class="logo">
-            <img src="logocarglass.png" alt="Logo Carglass">
-        </div>
-        <div class="background-element circle"></div>
-        <div class="content">
-            <h2>Conclusion</h2>
-            <div class="columns">
-                <div class="column">
-                    <h4>Exemples des Méthodes actuelles :</h4>
-                    <ul class="list-styled">
-                        <li>Aller sur ACDC pour définir avec le client son trajet d'un point A à un point B</li>
-                        <li>Revenir sans cesse sur ACDC pour saisir les nouveaux trajets</li>
-                        <li>Ouvrir Google Maps pour définir le temps de trajet</li>
-                        <li>Aller sur my carglass et cliquer jusqu'à 3 fois pour trouver les RDA d'un centre </li>
-                        <li>Aller sur Teams pour accéder au fichier excel SALR et naviguer entre les onglets pour définir de quel service achat dépend le centre </li>
-                        <li>Aller sur la carte Tesla pour définir les centres tesla les plus proches</li>
-                        <li>Aller sur SRDV pour trouver un centre éligible UBER</li>
-                        <li>Rechercher le fichier excel pour le calcul des MD et la saisie des eurocodes</li>
-                        <li>Aller dans les e-mails pour être informé des actualités process</li>	
-                        <li>Aller sur Teams pour accéder au fichier excel STOP RD</li>
-                    </ul>
-                </div>
-                <div class="column">
-                    <h4>Avec UNICORE :</h4>
-                    <div class="highlighted-title">Aller sur UNICORE</div>
-                </div>
-            </div>
-        </div>
         <div class="signature">Créé par Koroghli Housseyne</div>
-        <div class="slide-indicator">5 / 6</div>
+        <div class="slide-indicator">3 / 4</div>
     </div>
-    <div id="slide6" class="slide">
+
+    <div id="slide4" class="slide">
         <div class="logo">
             <img src="logocarglass.png" alt="Logo Carglass">
         </div>
@@ -492,7 +623,7 @@
                         <li><span class="highlight">Temps moyen de traitement par dossier</span></li>
                         <li><span class="highlight">Nombre de dossiers traités par heure</span></li>
                         <li><span class="highlight">Qualité de Service (QS)</span></li>
-                        <li>Précision des propositions faites aux clients</li>
+                        <li><span class="highlight">Évaluer l'impact sur le taux de conversion</span></li>
                     </ul>
                 </div>
                 <div class="column">
@@ -501,15 +632,16 @@
                     <ul class="list-styled">
                         <li>Comparer les performances avant/après</li>
                         <li><span class="highlight">Quantifier la réduction du temps de traitement par dossier</span></li>
-                        <li><span class="highlight">Évaluer l’impact sur le taux de conversion</span></li>
+                        <li><span class="highlight">Évaluer l'impact sur le taux de conversion</span></li>
                         <li><span class="highlight">Évaluer la Qualité de Service (QS)</span></li>
                         <li>Évaluer l'efficacité de la centralisation des outils</li>
                     </ul>
                 </div>
             </div>
             <p class="subtitle">Durée du test : 3 mois</p>
+        </div>
         <div class="signature">Créé par Koroghli Housseyne</div>
-        <div class="slide-indicator">6 / 6</div>
+        <div class="slide-indicator">4 / 4</div>
     </div>
 </div>
 
@@ -518,8 +650,6 @@
     <a href="#slide2" class="nav-dot" data-slide="2"></a>
     <a href="#slide3" class="nav-dot" data-slide="3"></a>
     <a href="#slide4" class="nav-dot" data-slide="4"></a>
-    <a href="#slide5" class="nav-dot" data-slide="5"></a>
-    <a href="#slide6" class="nav-dot" data-slide="6"></a>
 </nav>
 
 <script>
@@ -540,21 +670,19 @@
                     navDots.forEach(dot => dot.classList.remove('active'));
                     navDots[index].classList.add('active');
                     
-                    // Animation pour la page des objectifs
                     if (index === 1) {
-                        animateObjectives();
+                        animateConstat();
                     }
                 }
             });
         }
         
-        function animateObjectives() {
-            const objectivesList = document.querySelectorAll('#slide2 .list-styled li');
-            objectivesList.forEach((item, index) => {
+        function animateConstat() {
+            const constatItems = document.querySelectorAll('#slide2 .constat-item');
+            constatItems.forEach((item, index) => {
                 setTimeout(() => {
-                    item.style.opacity = '1';
-                    item.style.transform = 'translateX(0)';
-                }, index * 500);
+                    item.style.animation = `dropIn 0.6s ease-out forwards`;
+                }, index * 200);
             });
         }
         
@@ -620,6 +748,24 @@
                 }
             }
         }
+
+        // Interactive section for slide 2
+        const interactiveSection = document.querySelector('.interactive-section');
+        const arrowDown = document.getElementById('arrowDown');
+        const numberReveal = document.getElementById('numberReveal');
+        const revealText = document.getElementById('revealText');
+        let clickCount = 0;
+
+        interactiveSection.addEventListener('click', (e) => {
+            clickCount++;
+            if (clickCount === 1) {
+                arrowDown.classList.add('show');
+                numberReveal.classList.add('show');
+            } else if (clickCount === 2) {
+                revealText.classList.add('show');
+            } 
+            // Pas de troisième état, on reste sur l'affichage complet
+        });
     });
 </script>
 </body>
