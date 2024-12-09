@@ -1,0 +1,1968 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Présentation Service RD</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --carglass-red: #D7303E;
+            --carglass-yellow: #FFD700;
+            --text-color: #333;
+            --background-color: #f5f5f5;
+        }
+.constatations-container {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+    gap: 12px;
+    padding: 10px 40px;
+    width: calc(100% - 80px);
+    margin: 0 auto;
+    margin-bottom: 20px;
+}
+
+.constatation-card {
+    background: linear-gradient(145deg, #ffffff, #f5f5f5);
+    border-radius: 12px;
+    border-left: 4px solid var(--carglass-red);
+    box-shadow: 5px 5px 15px rgba(0,0,0,0.1),
+                -5px -5px 15px rgba(255,255,255,0.8);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    flex: 1;
+    min-width: 0;
+    max-width: none;
+    height: 40px;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    margin: 0 4px;
+}
+
+.constatation-card:before {
+    content: attr(data-title);
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    width: 90%;
+    font-size: 0.85em;
+    font-weight: 500;
+    color: var(--text-color);
+    opacity: 1;
+    transition: all 0.4s ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Animation au survol des bulles */
+.constatation-card:hover {
+    height: 120px;
+    min-width: 250px;
+    transform: translateY(-5px);
+    box-shadow: 8px 8px 20px rgba(0,0,0,0.15),
+                -8px -8px 20px rgba(255,255,255,0.9);
+    border-left: 4px solid var(--carglass-yellow);
+    background: linear-gradient(145deg, #ffffff, #ffffff);
+    z-index: 10;
+}
+
+/* Texte complet dans les bulles */
+.constatation-card .full-text {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 15px;
+    background: linear-gradient(145deg, #ffffff, #f8f8f8);
+    opacity: 0;
+    transform: translateY(100%);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    font-size: 0.95em;
+    line-height: 1.4;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    border-radius: 8px;
+}
+
+.constatation-card:hover {
+    height: 120px;
+    transform: translateY(-5px);
+    box-shadow: 8px 8px 20px rgba(0,0,0,0.15),
+                -8px -8px 20px rgba(255,255,255,0.9);
+    border-left: 4px solid var(--carglass-yellow);
+    background: linear-gradient(145deg, #ffffff, #ffffff);
+    z-index: 10;
+}
+
+.constatation-card:hover:before {
+    opacity: 0;
+    transform: translate(-50%, -100%);
+}
+
+.constatation-card:hover .full-text {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+
+/* Animation d'apparition */
+@keyframes slideIn {
+    0% {
+        opacity: 0;
+        transform: translateY(30px) scale(0.95);
+    }
+    60% {
+        transform: translateY(-7px) scale(1.02);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.slide.visible .constatation-card {
+    animation: slideIn 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.slide.visible .constatation-card:nth-child(1) { animation-delay: 0.1s; }
+.slide.visible .constatation-card:nth-child(2) { animation-delay: 0.2s; }
+.slide.visible .constatation-card:nth-child(3) { animation-delay: 0.3s; }
+.slide.visible .constatation-card:nth-child(4) { animation-delay: 0.4s; }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Roboto', sans-serif;
+            background-color: #f5f5f5;
+            overflow-x: hidden;
+        }
+
+        .slide-container {
+            height: 100vh;
+            overflow-y: auto;
+            scroll-snap-type: y mandatory;
+            position: relative;
+        }
+
+        .slide {
+            height: 100vh;
+            scroll-snap-align: start;
+            position: relative;
+            padding: 20px;
+            box-sizing: border-box;
+            background-color: #fff;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+        }
+
+.slide::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 5px;
+        background: linear-gradient(to right, var(--carglass-red), var(--carglass-yellow));
+        z-index: 3;
+    }
+
+    .slide.visible {
+        opacity: 1;
+    }
+
+    /* Navigation par points */
+    .dots-navigation {
+        position: fixed;
+        right: 20px;
+        top: 50%;
+        transform: translateY(-50%);
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        z-index: 1000;
+    }
+
+    .dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background-color: rgba(215, 48, 62, 0.3);
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .dot.active {
+        background-color: var(--carglass-red);
+        transform: scale(1.2);
+    }
+
+    /* Animations */
+    @keyframes fadeInDown {
+        from {
+            opacity: 0;
+            transform: translateY(-50px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(15px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+        100% { transform: scale(1); }
+    }
+
+    @keyframes rotate {
+        0% { transform: rotate(45deg); }
+        100% { transform: rotate(405deg); }
+    }
+
+    /* Éléments de fond */
+    .background-element {
+        position: absolute;
+        z-index: 1;
+        opacity: 0;
+        transition: opacity 0.5s ease-in-out;
+    }
+
+    .slide.visible .background-element {
+        opacity: 0.1;
+    }
+
+    .circle {
+        width: 300px;
+        height: 300px;
+        border-radius: 50%;
+        background: var(--carglass-red);
+        top: -100px;
+        right: -100px;
+    }
+
+    .square {
+        width: 200px;
+        height: 200px;
+        background: var(--carglass-yellow);
+        bottom: -50px;
+        left: -50px;
+        transform: rotate(45deg);
+    }
+
+    /* Slide Unicore */
+    .content-unicore {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        height: 100%;
+        text-align: center;
+    }
+
+    .content-unicore h1 {
+        color: var(--carglass-red);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 4em;
+        margin-bottom: 20px;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        opacity: 0;
+    }
+
+    .content-unicore .subtitle {
+        color: var(--text-color);
+        font-size: 1.5em;
+        margin-bottom: 40px;
+        font-weight: 300;
+        opacity: 0;
+    }
+
+    .slide.visible .content-unicore h1 {
+        animation: fadeInDown 1s ease-out forwards;
+    }
+
+    .slide.visible .content-unicore .subtitle {
+        animation: fadeInUp 1s ease-out 0.5s forwards;
+    }
+
+    /* Styles pour la slide Périmètre RD */
+    .content-perimeter {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-evenly;
+        height: 100%;
+        padding-top: 40px;
+        padding-bottom: 20px;
+    }
+
+    .text-container {
+        max-width: 800px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 30px;
+    }
+
+    .text-line {
+        display: flex;
+        align-items: center;
+        opacity: 0;
+        transform: translateY(30px);
+        transition: all 0.3s ease;
+    }
+
+    .slide.visible .text-line {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    /* Délai d'animation pour chaque ligne */
+    .slide.visible .text-line:nth-child(1) { transition-delay: 0.2s; }
+    .slide.visible .text-line:nth-child(2) { transition-delay: 0.4s; }
+    .slide.visible .text-line:nth-child(3) { transition-delay: 0.6s; }
+    .slide.visible .text-line:nth-child(4) { transition-delay: 0.8s; }
+
+    .arrow {
+        color: var(--carglass-red);
+        font-size: 2em;
+        margin-right: 20px;
+        min-width: 40px;
+        text-align: center;
+    }
+
+    .slide.visible .arrow {
+        animation: bounce 1s infinite;
+    }
+
+    @keyframes bounce {
+        0%, 100% { transform: translateX(0); }
+        50% { transform: translateX(10px); }
+    }
+
+    .text {
+        font-size: 1.1em;
+        line-height: 1.3;
+        color: var(--text-color);
+        flex-grow: 1;
+        padding: 15px 20px;
+        background: white;
+        border-radius: 50px;
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+    }
+
+    /* Styles pour la slide Outils */
+    .content-tools {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        flex-direction: row;
+        height: 100%;
+        padding: 60px 20px 20px;
+        gap: 40px;
+    }
+
+    .screenshot-container {
+        flex: 1 1 500px;
+        margin: 20px;
+        margin-left: -50px;
+        padding: 0;
+        background-color: transparent;
+        transition: transform 0.3s ease-in-out;
+        animation: fadeInUp 1s ease-out;
+        width: 800px;
+        height: auto;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .screenshot-image {
+        width: 100%;
+        max-width: 650px;
+        height: auto;
+        transition: transform 0.3s ease-in-out;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        border-radius: 10px;
+    }
+
+    .screenshot-container:hover .screenshot-image {
+        transform: scale(1.02);
+        box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Conteneur des outils (bulles) */
+.tools-container {
+    flex: 1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    padding: 20px;
+    height: calc(100% - 80px);
+    align-content: center;
+    justify-content: center;
+}
+
+/* Style des bulles d'outils */
+.tool-bubble {
+    background: white;
+    padding: 15px 25px;
+    border-radius: 30px;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+    transform: scale(0);
+    opacity: 0;
+    transition: all 0.2s ease;
+    text-align: center;
+    margin: 5px;
+    flex-grow: 0;
+    flex-shrink: 0;
+}
+
+/* Animation des bulles d'outils */
+.slide.visible .tool-bubble {
+    transform: scale(1);
+    opacity: 1;
+}
+
+/* Effet hover sur les bulles d'outils */
+.tool-bubble:hover {
+    transform: translateY(-5px) scale(1.05);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+    background: var(--carglass-red);
+    color: white;
+}
+
+    /* Styles communs */
+    .logo {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        z-index: 2;
+    }
+
+    h2 {
+        text-align: center;
+        color: var(--carglass-red);
+        font-size: 2.5em;
+        margin: 0;
+        padding: 0;
+        position: absolute;
+        top: 100px;
+        width: 100%;
+        left: 0;
+        font-family: 'Montserrat', sans-serif;
+        opacity: 0;
+        transform: translateY(-30px);
+        transition: all 0.5s ease;
+    }
+.slide#slide3 h2 {
+    top: 80px;
+}
+
+    .slide.visible h2 {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    .signature {
+        position: absolute;
+        bottom: 20px;
+        left: 20px;
+        font-size: 0.9em;
+        color: var(--text-color);
+    }
+
+    .slide-indicator {
+        position: absolute;
+        bottom: 20px;
+        right: 20px;
+        font-size: 0.9em;
+        color: var(--text-color);
+    }
+
+      /* Nouveaux styles pour la slide vidéo */
+.video-comparison {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    height: calc(100% - 180px);
+    margin-top: -10px;
+    gap: 40px;
+    width: 100%;
+}
+
+.video-group {
+    flex: 1;
+    max-width: 45%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.comparison-title {
+    color: var(--carglass-red);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1.8em;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 15px;
+    padding: 5px;
+    background: white;
+}
+
+.video-container {
+    width: 100%;
+    background-color: #000;
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+}
+        video {
+            width: 100%;
+            display: block;
+        }
+
+        .timer-container {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            width: 160px;
+            height: 160px;
+        }
+
+        .timer-background {
+            position: absolute;
+            inset: 25px;
+            border-radius: 50%;
+            background-color: rgba(0, 0, 0, 0.75);
+        }
+
+        .timer-progress {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+        }
+
+        .timer-text {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 2rem;
+            font-family: Arial, sans-serif;
+            font-weight: bold;
+            z-index: 10;
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 0rem;
+            background-color: rgba(0, 0, 0, 0.75);
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+        }
+
+        button {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 50%;
+            transition: background-color 0.4s;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        button:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .video-title {
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: var(--text-color);
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+.main-control-btn:hover {
+    background-color: #b62834;
+    transform: translateY(-2px);
+    transition: all 0.3s ease;
+}
+
+.main-control-btn:active {
+    transform: translateY(0px);
+}
+.main-controls {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+    width: auto !important;
+    margin: 0 !important;
+}
+
+.main-control-btn {
+    width: 60px !important;
+    height: 60px !important;
+    border-radius: 50% !important;
+    background-color: var(--carglass-red) !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.main-control-btn span {
+    display: none; /* Cache le texte */
+}
+
+.main-control-btn svg {
+    width: 30px;
+    height: 30px;
+}
+
+.main-control-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+}
+
+.video-comparison {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    height: calc(100% - 200px);
+    margin-top: 0px;
+    gap: 40px;
+    width: 100%;
+    padding: 0px;
+}
+
+.video-group {
+    flex: 1;
+    max-width: 45%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+}
+.metrics-container {
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    pointer-events: none;
+}
+
+.slide.show-metrics .metrics-container {
+    opacity: 1;
+}
+
+.click-counter {
+    font-size: 1.6em;
+    text-align: center;
+    margin-top: 10px;
+    font-family: 'Montserrat', sans-serif;
+}
+
+.click-text {
+    color: var(--carglass-red);
+    font-weight: bold;
+    display: inline-block;
+    animation: pulseText 2s infinite;
+}
+
+.gain-text {
+    text-align: center;
+    margin-top: 20px;
+    font-family: 'Montserrat', sans-serif;
+}
+
+.gain-label {
+    font-size: 1.8em;
+    color: var(--text-color);
+}
+
+.gain-value {
+    font-size: 2.2em;
+    color: #22C55E;
+    font-weight: bold;
+    animation: pulseGain 2s infinite;
+}
+.unicore-summary {
+    text-align: center;
+    margin-top: 10px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1.2em;
+    color: var(--text-color);
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.8s ease;
+    padding: 10px 15px;
+    line-height: 1.2;
+    background: linear-gradient(145deg, #ffffff, #f5f5f5);
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+    border-left: 4px solid var(--carglass-red);
+    white-space: nowrap;
+}
+
+.slide.show-metrics .unicore-summary {
+    opacity: 1;
+    transform: translateY(0);
+    animation: fadeInUp 0.8s ease-out 0.3s forwards;
+}
+
+.unicore-highlight {
+    color: var(--carglass-red);
+    font-weight: bold;
+}
+
+.click-area {
+    position: absolute;
+    bottom: 80px;
+    left: 0;
+    right: 0;
+    height: 100px;
+    cursor: pointer;
+    background: white;
+    opacity: 0.01;
+}
+
+@keyframes pulseText {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+@keyframes pulseGain {
+    0% { transform: scale(1); color: #22C55E; }
+    50% { transform: scale(1.1); color: #16A34A; }
+    100% { transform: scale(1); color: #22C55E; }
+}
+
+    /* Styles pour le texte de gain */
+.gain-text {
+    text-align: center;
+    margin-top: 40px;
+    font-family: 'Montserrat', sans-serif;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.8s ease;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+}  /* Il y avait une accolade en trop ici qui fermait le bloc trop tôt */
+
+.slide.visible .gain-text {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.gain-label {
+    font-size: 2.2em;
+    color: var(--text-color);
+}
+
+.gain-value {
+    font-size: 2.8em;
+    color: #22C55E;
+    font-weight: bold;
+    animation: pulseGain 2s infinite;
+}
+
+    @keyframes pulseText {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+
+    @keyframes pulseGain {
+        0% { transform: scale(1); color: #22C55E; }
+        50% { transform: scale(1.1); color: #16A34A; }
+        100% { transform: scale(1); color: #22C55E; }
+    }
+    </style>
+</head>
+<body>
+   <!-- Navigation par points -->
+   <div class="dots-navigation">
+    <div class="dot active" data-slide="1"></div>
+    <div class="dot" data-slide="2"></div>
+    <div class="dot" data-slide="3"></div>
+    <div class="dot" data-slide="4"></div>
+    <div class="dot" data-slide="5"></div>
+    <div class="dot" data-slide="6"></div>
+</div>
+   <div class="slide-container">
+       <!-- Slide Unicore -->
+       <div id="slide1" class="slide">
+           <div class="logo">
+               <img src="file:///Users/heusse/downloads/logocarglass.png" alt="Logo Carglass" style="width: 150px; height: auto;">
+           </div>
+           <div class="background-element circle"></div>
+           <div class="background-element square"></div>
+           <div class="content-unicore">
+               <h1>UNICORE</h1>
+               <p class="subtitle">Une solution innovante pour optimiser notre assistance aux clients</p>
+           </div>
+           <div class="signature">Créé par Koroghli Housseyne</div>
+           <div class="slide-indicator">1 / 6</div>
+       </div>
+
+       <!-- Première Slide - Périmètre RD -->
+       <div id="slide2" class="slide">
+           <div class="logo">
+               <img src="file:///Users/heusse/downloads/logocarglass.png" alt="Logo Carglass" style="width: 150px; height: auto;">
+           </div>
+           <div class="background-element circle"></div>
+           <div class="background-element square"></div>
+           <div class="content-perimeter">
+               <h2>Périmètre Service RD</h2>
+               
+               <div class="text-container">
+                   <div class="text-line">
+                       <div class="arrow">➜</div>
+                       <div class="text">
+                           Répondre aux problématiques de délais rencontrées lors du 1er contact client via le transfert à chaud ou par la bannette joker
+                       </div>
+                   </div>
+
+                   <div class="text-line">
+                       <div class="arrow">➜</div>
+                       <div class="text">
+                           Echange quotidien avec le réseau (centre, RDA, RTR, RDR) et les services achats.
+                       </div>
+                   </div>
+
+                   <div class="text-line">
+                       <div class="arrow">➜</div>
+                       <div class="text">
+                           Gestion : Toits panoramiques, créations d'Eurocodes, commandes de vitrages logotés, PB Tesla, pièces plus fournies.
+                       </div>
+                   </div>
+
+                   <div class="text-line">
+                       <div class="arrow">➜</div>
+                       <div class="text">
+                           Utilisation des moyens différenciés dont le pilote en cours UBER.
+                       </div>
+                   </div>
+               </div>
+           </div>
+           <div class="signature">Créé par Koroghli Housseyne</div>
+           <div class="slide-indicator">2 / 6</div>
+       </div>
+
+       <!-- Slide 3 - Nos Outils -->
+<div id="slide3" class="slide">
+    <div class="logo">
+        <img src="file:///Users/heusse/downloads/logocarglass.png" alt="Logo Carglass" style="width: 150px; height: auto;">
+    </div>
+    <div class="background-element circle"></div>
+    <div class="background-element square"></div>
+
+    <!-- Titre ajouté avec marge minimale -->
+    <h2 style="margin-top: 10px; margin-bottom: 0; top: 20px; font-size: 2em;">Constat</h2>
+
+<div class="constatations-container">
+    <div class="constatation-card" data-title="Multiples fichiers">
+        <div class="full-text">
+            Multiples fichiers et outils requis pour accomplir les tâches.
+        </div>
+    </div>
+    <div class="constatation-card" data-title="Cheminement long">
+        <div class="full-text">
+            Cheminement trop long pour de simples recherches d'informations.
+        </div>
+    </div>
+    <div class="constatation-card" data-title="Perte de temps">
+        <div class="full-text">
+            Perte de temps due aux longues recherches de solutions.
+        </div>
+    </div>
+    <div class="constatation-card" data-title="Processus désuets">
+        <div class="full-text">
+            Nos processus de gestion sont désuets et doivent évoluer.
+        </div>
+    </div>
+</div>
+    <div class="content-tools" style="padding-top: 40px; height: calc(100% - 200px);">
+        <div class="screenshot-container" style="margin-top: 0;">
+            <img src="file:///Users/heusse/downloads/outils.png" alt="Screenshot" class="screenshot-image" style="width: 100%; height: auto;">
+        </div>
+        <div class="tools-container" style="margin-top: 0;">
+            <div class="tool-bubble">Akio</div>
+            <div class="tool-bubble">Boite outlook</div>
+            <div class="tool-bubble">MyCarglass</div>
+            <div class="tool-bubble">Remedy</div>
+            <div class="tool-bubble">IGRH</div>
+            <div class="tool-bubble">Plan d'accès</div>
+            <div class="tool-bubble">Tableau de remise MD</div>
+            <div class="tool-bubble">Tableau service achats</div>
+            <div class="tool-bubble">Tableau centres tesla</div>
+            <div class="tool-bubble">Bannette joker</div>
+            <div class="tool-bubble">Site Uber</div>
+            <div class="tool-bubble">Book RD</div>
+            <div class="tool-bubble">TEAMS</div>
+            <div class="tool-bubble">Merlin</div>
+        </div>
+    </div>
+
+    <!-- Espace pour du contenu supplémentaire avec marge minimale -->
+    <div style="margin-top: 20px; padding: 0 40px;">
+        <!-- Vous pourrez ajouter votre contenu ici -->
+    </div>
+
+    <div class="signature">Créé par Koroghli Housseyne</div>
+    <div class="slide-indicator">3 / 6</div>
+</div>
+
+<style>
+
+.slide#slide2 {
+    padding-top: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.slide#slide2 h2 {
+    position: relative;
+    margin: 0;
+    padding: 15px 0;
+    font-size: 2em;
+    top: 0;
+}
+
+.constatations-container {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+    gap: 12px;
+    padding: 10px 40px;
+    width: calc(100% - 80px);
+    margin: 0 auto;
+    margin-bottom: 10px;
+    margin-top: 80px;
+}
+
+/* Section des outils */
+.content-tools {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: row;
+    height: calc(100% - 200px);
+    padding: 20px 20px 0px;
+    gap: 20px;
+}
+
+/* Conteneur de la capture d'écran */
+.screenshot-container {
+    flex: 1 1 500px;
+    margin: 0;
+    margin-left: -30px;
+    padding: 0;
+    background-color: transparent;
+    transition: transform 0.3s ease-in-out;
+    animation: fadeInUp 1s ease-out;
+    width: 700px;
+    height: auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.tools-container {
+    padding: 10px;
+    height: auto;
+    min-height: 200px;
+}
+.click-area {
+    position: absolute;
+    bottom: 80px;
+    left: 0;
+    right: 0;
+    height: 100px;
+    cursor: pointer;
+    background: white;
+    opacity: 0.01;
+}
+
+.metrics-container {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.5s ease;
+    pointer-events: none;
+}
+
+.metrics-container.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+.metrics-container {
+        opacity: 0;
+        transform: translateY(20px);
+        transition: all 0.5s ease;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .click-counters {
+        display: flex;
+        gap: 40px;
+        justify-content: center;
+    }
+
+    .metrics-container.show {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    .click-area {
+        position: absolute;
+        bottom: 80px;
+        left: 0;
+        right: 0;
+        height: 100px;
+        cursor: pointer;
+        background: white;
+        opacity: 0.01;
+    }
+#slide5 {
+    position: relative;
+    overflow: hidden;
+}
+
+#slide5 .video-comparison {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    height: calc(100% - 180px);
+    margin-top: -10px;
+    gap: 40px;
+    width: 100%;
+}
+
+#slide5 .video-group {
+    flex: 1;
+    max-width: 45%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#slide5 .comparison-title {
+    color: var(--carglass-red);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1.8em;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 15px;
+    padding: 5px;
+    background: white;
+}
+
+#slide5 .video-container {
+    width: 100%;
+    background-color: #000;
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+}
+
+#slide5 .main-controls {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+    width: auto !important;
+    margin: 0 !important;
+}
+
+#slide5 .metrics-container {
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    pointer-events: none;
+}
+
+#slide5.show-metrics .metrics-container {
+    opacity: 1;
+}
+
+#slide5 .click-counter {
+    font-size: 1.6em;
+    text-align: center;
+    margin-top: 10px;
+    font-family: 'Montserrat', sans-serif;
+}
+
+#slide5 .click-text {
+    color: var(--carglass-red);
+    font-weight: bold;
+    display: inline-block;
+    animation: pulseText 2s infinite;
+}
+
+#slide5 .gain-text {
+    text-align: center;
+    margin-top: 20px;
+    font-family: 'Montserrat', sans-serif;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.8s ease;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+}
+
+#slide5.visible .gain-text {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+#slide5 .gain-label {
+    font-size: 2.2em;
+    color: var(--text-color);
+}
+
+#slide5 .gain-value {
+    font-size: 2.8em;
+    color: #22C55E;
+    font-weight: bold;
+    animation: pulseGain 2s infinite;
+}
+
+#slide5 .unicore-summary {
+    text-align: center;
+    margin-top: 10px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1.2em;
+    color: var(--text-color);
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.8s ease;
+    padding: 10px 15px;
+    line-height: 1.2;
+    background: linear-gradient(145deg, #ffffff, #f5f5f5);
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+    border-left: 4px solid var(--carglass-red);
+    white-space: nowrap;
+}
+
+#slide5 .main-control-btn {
+    width: 60px !important;
+    height: 60px !important;
+    border-radius: 50% !important;
+    background-color: var(--carglass-red) !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+#slide5 .click-area {
+    position: absolute;
+    bottom: 80px;
+    left: 0;
+    right: 0;
+    height: 100px;
+    cursor: pointer;
+    background: white;
+    opacity: 0.01;
+}
+
+/* Animation styles */
+@keyframes pulseText {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+@keyframes pulseGain {
+    0% { transform: scale(1); color: #22C55E; }
+    50% { transform: scale(1.1); color: #16A34A; }
+    100% { transform: scale(1); color: #22C55E; }
+}
+
+/* Styles pour les blocs carrés de la slide 6 */
+        .square-blocks-wrapper {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: calc(100% - 250px);
+    margin-top: 120px;
+    padding: 0 20px;
+}
+
+.square-blocks-container {
+    display: flex;
+    gap: 40px;
+    width: 100%;
+    max-width: 1000px;
+    justify-content: center;
+    align-items: stretch;
+}
+
+.square-block {
+    flex: 0 1 350px;
+    background: white;
+    border-radius: 15px;
+    padding: 25px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    border: 2px solid var(--carglass-red);
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.square-block:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    border-color: var(--carglass-yellow);
+}
+
+.square-title {
+    color: var(--carglass-red);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1.8em;
+    margin-bottom: 20px;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: bold;
+    position: relative;
+    padding-bottom: 10px;
+}
+
+.square-title::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 50px;
+    height: 2px;
+    background: var(--carglass-red);
+}
+
+.square-content {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    padding: 10px 0;
+}
+
+.bullet-point {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    animation: fadeInLeft 0.5s ease forwards;
+    opacity: 0;
+}
+
+.arrow-icon {
+    color: var(--carglass-red);
+    font-size: 1.1em;
+    flex-shrink: 0;
+}
+
+.point-text {
+    font-size: 1em;
+    line-height: 1.4;
+    color: var(--text-color);
+}
+
+.highlighted .point-text {
+    font-weight: bold;
+    color: var(--carglass-red);
+}
+
+.future-header .point-text {
+    font-style: italic;
+    font-size: 0.95em;
+}
+
+@keyframes fadeInLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-15px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.bullet-point:nth-child(1) { animation-delay: 0.2s; }
+.bullet-point:nth-child(2) { animation-delay: 0.4s; }
+.bullet-point:nth-child(3) { animation-delay: 0.6s; }
+            }
+</style>
+
+      <!-- Slide 4 - Comparaison vidéo 1 -->
+<div id="slide4" class="slide">
+    <div class="logo">
+        <img src="file:///Users/heusse/downloads/logocarglass.png" alt="Logo Carglass" style="width: 150px; height: auto;">
+    </div>
+    <div class="background-element circle"></div>
+    <div class="background-element square"></div>  
+    <div class="video-comparison">
+        <div class="main-controls">
+            <button id="mainPlayPauseBtn" class="main-control-btn">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" 
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Première vidéo -->
+        <div class="video-group">
+            <h3 class="comparison-title">Avant</h3>
+            <div class="video-container">
+                <div class="video-heading">Avant</div>
+                <video id="video1" preload="auto" playsinline>
+                    <source src="/Users/heusse/Downloads/AVEUROCODE.mp4" type="video/mp4">
+                    Votre navigateur ne supporte pas la lecture vidéo.
+                </video>
+
+                <div class="timer-container">
+                    <div class="timer-background"></div>
+                    <svg class="timer-progress">
+                        <circle id="progressCircle1" cx="80" cy="80" r="52" 
+                            stroke="#22C55E" 
+                            stroke-width="6" 
+                            fill="none"/>
+                    </svg>
+                    <div class="timer-text" id="timerText1">00:00</div>
+                </div>
+
+                <div class="controls">
+                    <button id="playPauseBtn1">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" 
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                        </svg>
+                    </button>
+                    <button id="resetBtn1">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" 
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M1 4v6h6"></path>
+                            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="metrics-container">
+                <div class="click-counter">Total: <span class="click-text">42 clics</span></div>
+            </div>
+        </div>
+
+        <!-- Deuxième vidéo -->
+        <div class="video-group">
+            <h3 class="comparison-title">Après</h3>
+            <div class="video-container">
+                <div class="video-heading">Après</div>
+                <video id="video2" preload="auto" playsinline>
+                    <source src="/Users/heusse/Downloads/APRESOFF.mp4" type="video/mp4">
+                    Votre navigateur ne supporte pas la lecture vidéo.
+                </video>
+
+                <div class="timer-container">
+                    <div class="timer-background"></div>
+                    <svg class="timer-progress">
+                        <circle id="progressCircle2" cx="80" cy="80" r="52" 
+                            stroke="#22C55E" 
+                            stroke-width="6" 
+                            fill="none"/>
+                    </svg>
+                    <div class="timer-text" id="timerText2">00:00</div>
+                </div>
+
+                <div class="controls">
+                    <button id="playPauseBtn2">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" 
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                        </svg>
+                    </button>
+                    <button id="resetBtn2">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" 
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M1 4v6h6"></path>
+                            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="metrics-container">
+                <div class="click-counter">Total: <span class="click-text">28 clics</span></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="metrics-container">
+    <div class="gain-text">
+        <span class="gain-label">Gain : </span>
+        <span class="gain-value">2 minutes</span>
+    </div>
+    <div class="unicore-summary">
+        Avec <span class="unicore-highlight">Unicore</span> 5 outils en moins et un gain de temps dans la recherche d'information <br>(contact RTR, RDA et RDR)
+    </div>
+</div>
+
+    <div class="click-area" id="clickArea3"></div>
+    
+    <div class="signature">Créé par Koroghli Housseyne</div>
+    <div class="slide-indicator">4 / 6</div>
+</div>
+<!-- Slide 5 - Comparaison vidéo 2 -->
+<div id="slide5" class="slide">
+    <div class="logo">
+        <img src="file:///Users/heusse/downloads/logocarglass.png" alt="Logo Carglass" style="width: 150px; height: auto;">
+    </div>
+    <div class="background-element circle"></div>
+    <div class="background-element square"></div>    
+    <div class="video-comparison">
+        <div class="main-controls">
+            <button id="mainPlayPauseBtn2" class="main-control-btn">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" 
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Première vidéo -->
+        <div class="video-group">
+            <h3 class="comparison-title">Avant</h3>
+            <div class="video-container">
+                <div class="video-heading">Avant</div>
+                <video id="video3" preload="auto" playsinline>
+                    <source src="/Users/heusse/Downloads/AVofftesla.mp4" type="video/mp4">
+                    Votre navigateur ne supporte pas la lecture vidéo.
+                </video>
+
+                <div class="timer-container">
+                    <div class="timer-background"></div>
+                    <svg class="timer-progress">
+                        <circle id="progressCircle3" cx="80" cy="80" r="52" 
+                            stroke="#22C55E" 
+                            stroke-width="6" 
+                            fill="none"/>
+                    </svg>
+                    <div class="timer-text" id="timerText3">00:00</div>
+                </div>
+
+                <div class="controls">
+                    <button id="playPauseBtn3">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" 
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                        </svg>
+                    </button>
+                    <button id="resetBtn3">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" 
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M1 4v6h6"></path>
+                            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="metrics-container">
+                <div class="click-counter">Total: <span class="click-text">40 clics</span></div>
+            </div>
+        </div>
+
+        <!-- Deuxième vidéo -->
+        <div class="video-group">
+            <h3 class="comparison-title">Après</h3>
+            <div class="video-container">
+                <div class="video-heading">Après</div>
+                <video id="video4" preload="auto" playsinline>
+                    <source src="/Users/heusse/Downloads/APofftesla.mp4" type="video/mp4">
+                    Votre navigateur ne supporte pas la lecture vidéo.
+                </video>
+
+                <div class="timer-container">
+                    <div class="timer-background"></div>
+                    <svg class="timer-progress">
+                        <circle id="progressCircle4" cx="80" cy="80" r="52" 
+                            stroke="#22C55E" 
+                            stroke-width="6" 
+                            fill="none"/>
+                    </svg>
+                    <div class="timer-text" id="timerText4">00:00</div>
+                </div>
+
+                <div class="controls">
+                    <button id="playPauseBtn4">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" 
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                        </svg>
+                    </button>
+                    <button id="resetBtn4">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" 
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M1 4v6h6"></path>
+                            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="metrics-container">
+                <div class="click-counter">Total: <span class="click-text">26 clics</span></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="metrics-container">
+    <div class="gain-text">
+        <span class="gain-label">Gain : </span>
+        <span class="gain-value">1.17 minutes</span>
+    </div>
+    <div class="unicore-summary">
+        Avec <span class="unicore-highlight">Unicore</span> 5 outils en moins et un gain de temps dans la recherche d'information <br>(contact RTR, RDA et RDR)
+    </div>
+</div>
+
+    <div class="click-area" id="clickArea4"></div>
+    
+    <div class="signature">Créé par Koroghli Housseyne</div>
+    <div class="slide-indicator">5 / 6</div>
+</div>
+<!-- Slide 6 - Prochaine étape -->
+<div id="slide6" class="slide">
+    <div class="logo">
+        <img src="file:///Users/heusse/downloads/logocarglass.png" alt="Logo Carglass" style="width: 150px; height: auto;">
+    </div>
+    <div class="background-element circle"></div>
+    <div class="background-element square"></div>
+    
+    <h2 style="top: 40px;">Prochaine étape</h2>
+
+    <div class="square-blocks-wrapper">
+        <div class="square-blocks-container">
+            <!-- Premier bloc : Test -->
+            <div class="square-block">
+                <h3 class="square-title">Test</h3>
+                <div class="square-content">
+                    <div class="bullet-point">
+                        <span class="arrow-icon">➜</span>
+                        <span class="point-text">Test au sein de l'équipe RD 1 mois</span>
+                    </div>
+                    <div class="bullet-point">
+                        <span class="arrow-icon">➜</span>
+                        <span class="point-text">REX via un Form Net Promoter Score (NPS)</span>
+                    </div>
+                    <div class="bullet-point highlighted">
+                        <span class="arrow-icon">➜</span>
+                        <span class="point-text">Evaluer le Temps de traitement par dossier</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Deuxième bloc : À venir -->
+            <div class="square-block">
+                <h3 class="square-title">À venir</h3>
+                <div class="square-content">
+                    <div class="bullet-point future-header">
+                        <span class="point-text">Pour le futur : immersion dans diff services pour adaptation de l'outil :</span>
+                    </div>
+                    <div class="bullet-point">
+                        <span class="arrow-icon">➜</span>
+                        <span class="point-text">REAC, CB</span>
+                    </div>
+                    <div class="bullet-point">
+                        <span class="arrow-icon">➜</span>
+                        <span class="point-text">FO, SDR, PRIVILEGE etc</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="signature">Créé par Koroghli Housseyne</div>
+    <div class="slide-indicator">6 / 6</div>
+</div>
+   </div>
+
+   <script>
+       // Scripts de navigation existants
+       document.addEventListener('DOMContentLoaded', function() {
+           const slideContainer = document.querySelector('.slide-container');
+           const dots = document.querySelectorAll('.dot');
+           const slides = document.querySelectorAll('.slide');
+           let isScrolling = false;
+
+           // Fonction pour vérifier si une slide est visible
+           function isElementInViewport(el) {
+               const rect = el.getBoundingClientRect();
+               const threshold = window.innerHeight * 0.25;
+               return (
+                   rect.top >= -threshold &&
+                   rect.top <= threshold &&
+                   rect.bottom <= (window.innerHeight + threshold)
+               );
+           }
+
+           // Fonction pour mettre à jour la visibilité des slides
+           function updateSlidesVisibility() {
+               slides.forEach(slide => {
+                   if (isElementInViewport(slide)) {
+                       if (!slide.classList.contains('visible')) {
+                           slide.classList.remove('visible');
+                           void slide.offsetWidth;
+                           slide.classList.add('visible');
+                       }
+                   } else {
+                       slide.classList.remove('visible');
+                   }
+               });
+           }
+
+           // Mise à jour des points de navigation
+           function updateDots() {
+               const currentSlideIndex = Math.round(slideContainer.scrollTop / window.innerHeight);
+               dots.forEach((dot, index) => {
+                   dot.classList.toggle('active', index === currentSlideIndex);
+               });
+           }
+
+           function scrollToSlide(index) {
+               isScrolling = true;
+               slideContainer.scrollTo({
+                   top: index * window.innerHeight,
+                   behavior: 'smooth'
+               });
+               
+               slides[index].classList.add('visible');
+               
+               setTimeout(() => {
+                   isScrolling = false;
+                   updateDots();
+               }, 300);
+           }
+
+           let scrollTimeout;
+           slideContainer.addEventListener('scroll', () => {
+               if (!isScrolling) {
+                   clearTimeout(scrollTimeout);
+                   scrollTimeout = setTimeout(() => {
+                       updateDots();
+                       updateSlidesVisibility();
+                   }, 10);
+               }
+           });
+
+           // Navigation par les points
+           dots.forEach((dot, index) => {
+               dot.addEventListener('click', () => {
+                   scrollToSlide(index);
+               });
+           });
+
+           // Navigation clavier et autres événements existants
+           document.addEventListener('keydown', function(event) {
+               const currentIndex = Math.round(slideContainer.scrollTop / window.innerHeight);
+               
+               if ((event.key === 'ArrowDown' || event.key === 'PageDown') && currentIndex < slides.length - 1) {
+                   event.preventDefault();
+                   scrollToSlide(currentIndex + 1);
+               } else if ((event.key === 'ArrowUp' || event.key === 'PageUp') && currentIndex > 0) {
+                   event.preventDefault();
+                   scrollToSlide(currentIndex - 1);
+               }
+           });
+
+           // Initialisation
+           slideContainer.scrollTo(0, 0);
+           setTimeout(() => {
+               slides[0].classList.add('visible');
+               updateDots();
+           }, 100);
+       });
+
+      // Configuration et gestion des vidéos pour les slides 3 et 4
+function setupVideo(videoId, progressCircleId, timerTextId, playPauseBtnId, resetBtnId) {
+    const video = document.getElementById(videoId);
+    const playPauseBtn = document.getElementById(playPauseBtnId);
+    const resetBtn = document.getElementById(resetBtnId);
+    const timerText = document.getElementById(timerTextId);
+    const progressCircle = document.getElementById(progressCircleId);
+
+    // Configuration du cercle de progression
+    const radius = 52;
+    const circumference = 2 * Math.PI * radius;
+    progressCircle.style.strokeDasharray = circumference;
+    progressCircle.style.strokeDashoffset = circumference;
+
+    // Configuration des durées maximales pour chaque vidéo
+    const MAX_DURATION = {
+        'video1': 191, // 3:10 minutes pour la première vidéo (Avant)
+        'video2': 71,  // 1:10 secondes pour la deuxième vidéo (Après)
+        'video3': 167, // 2:46 minutes pour la troisième vidéo (Avant)
+        'video4': 78   // 1:17 secondes pour la quatrième vidéo (Après)
+    };
+
+    let startTime = 0;
+    let animationFrameId = null;
+
+    function formatTime(timeInSeconds) {
+        const minutes = Math.floor(timeInSeconds / 60);
+        const seconds = Math.floor(timeInSeconds % 60);
+        return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    function updateTimer(timestamp) {
+        if (!startTime) startTime = timestamp;
+        
+        const progress = video.currentTime / video.duration;
+        const maxDuration = MAX_DURATION[videoId] || video.duration;
+        const virtualTime = progress * maxDuration;
+        
+        // Mise à jour du texte du timer
+        timerText.textContent = formatTime(Math.min(virtualTime, maxDuration));
+        
+        // Mise à jour du cercle de progression
+        const offset = circumference - (progress * circumference);
+        progressCircle.style.strokeDashoffset = offset;
+        
+        // Mise à jour de la couleur selon la vidéo
+        let color;
+        if (videoId === 'video1' || videoId === 'video3') {
+            // Pour les vidéos "Avant" seulement, changement de couleur progressif
+            const timePercentage = virtualTime / maxDuration;
+            if (timePercentage <= 0.5) {
+                color = '#22C55E'; // Vert pour la première moitié
+            } else if (timePercentage <= 0.75) {
+                color = '#FCD34D'; // Jaune pour le troisième quart
+            } else {
+                color = '#DC2626'; // Rouge pour le dernier quart
+            }
+        } else {
+            // Pour les vidéos "Après", toujours vert
+            color = '#22C55E';
+        }
+        
+        progressCircle.style.stroke = color;
+
+        if (!video.paused) {
+            animationFrameId = requestAnimationFrame(updateTimer);
+        }
+    }
+
+    function startAnimation() {
+        startTime = 0;
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = requestAnimationFrame(updateTimer);
+    }
+
+    function stopAnimation() {
+        cancelAnimationFrame(animationFrameId);
+    }
+
+    function updatePlayPauseButton(button, isPaused) {
+        button.innerHTML = isPaused ? 
+            `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" 
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>` :
+            `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" 
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="6" y="4" width="4" height="16"></rect>
+                <rect x="14" y="4" width="4" height="16"></rect>
+            </svg>`;
+    }
+
+    // Gestion des boutons de contrôle individuels
+    playPauseBtn.addEventListener('click', () => {
+        if (video.paused) {
+            video.play();
+            startAnimation();
+            updatePlayPauseButton(playPauseBtn, false);
+        } else {
+            video.pause();
+            stopAnimation();
+            updatePlayPauseButton(playPauseBtn, true);
+        }
+    });
+
+    resetBtn.addEventListener('click', () => {
+        video.currentTime = 0;
+        if (!video.paused) {
+            video.pause();
+            stopAnimation();
+            updatePlayPauseButton(playPauseBtn, true);
+        }
+        startTime = 0;
+        updateTimer(0);
+    });
+
+    // Initialisation du timer et gestion de fin de vidéo
+    video.addEventListener('loadedmetadata', () => {
+        updateTimer(0);
+    });
+
+    video.addEventListener('ended', () => {
+        stopAnimation();
+        updatePlayPauseButton(playPauseBtn, true);
+    });
+
+    return {
+        play: () => {
+            video.play();
+            startAnimation();
+            updatePlayPauseButton(playPauseBtn, false);
+        },
+        pause: () => {
+            video.pause();
+            stopAnimation();
+            updatePlayPauseButton(playPauseBtn, true);
+        },
+        isPaused: () => video.paused,
+        hasEnded: () => video.ended
+    };
+}
+
+// Initialisation et synchronisation des vidéos
+document.addEventListener('DOMContentLoaded', function() {
+    // Slide 3 - Initialisation des vidéos 1 et 2
+    const video1Controller = setupVideo('video1', 'progressCircle1', 'timerText1', 'playPauseBtn1', 'resetBtn1');
+    const video2Controller = setupVideo('video2', 'progressCircle2', 'timerText2', 'playPauseBtn2', 'resetBtn2');
+    
+    const mainPlayPauseBtn = document.getElementById('mainPlayPauseBtn');
+
+    // Slide 4 - Initialisation des vidéos 3 et 4
+    const video3Controller = setupVideo('video3', 'progressCircle3', 'timerText3', 'playPauseBtn3', 'resetBtn3');
+    const video4Controller = setupVideo('video4', 'progressCircle4', 'timerText4', 'playPauseBtn4', 'resetBtn4');
+    
+    const mainPlayPauseBtn2 = document.getElementById('mainPlayPauseBtn2');
+
+    function updateMainButtonIcon(button, isPaused) {
+        button.innerHTML = isPaused ? 
+            `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" 
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>` :
+            `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" 
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="6" y="4" width="4" height="16"></rect>
+                <rect x="14" y="4" width="4" height="16"></rect>
+            </svg>`;
+    }
+
+    // Gestion du bouton central de la slide 3
+    mainPlayPauseBtn.addEventListener('click', () => {
+        const allPaused = video1Controller.isPaused() && video2Controller.isPaused();
+        
+        if (allPaused) {
+            // Démarrer les deux vidéos
+            video1Controller.play();
+            video2Controller.play();
+            updateMainButtonIcon(mainPlayPauseBtn, false);
+        } else {
+            // Mettre en pause les deux vidéos
+            video1Controller.pause();
+            video2Controller.pause();
+            updateMainButtonIcon(mainPlayPauseBtn, true);
+        }
+    });
+
+    // Gestion du bouton central de la slide 4
+    mainPlayPauseBtn2.addEventListener('click', () => {
+        const allPaused = video3Controller.isPaused() && video4Controller.isPaused();
+        
+        if (allPaused) {
+            // Démarrer les deux vidéos
+            video3Controller.play();
+            video4Controller.play();
+            updateMainButtonIcon(mainPlayPauseBtn2, false);
+        } else {
+            // Mettre en pause les deux vidéos
+            video3Controller.pause();
+            video4Controller.pause();
+            updateMainButtonIcon(mainPlayPauseBtn2, true);
+        }
+    });
+});
+
+// Nouveau code pour la gestion des clics
+document.addEventListener('DOMContentLoaded', function() {
+    function setupMetricsReveal(slideId) {
+        const slide = document.getElementById(slideId);
+        const clickArea = slide.querySelector('.click-area');
+        
+        if (clickArea && slide) {
+            clickArea.addEventListener('click', function() {
+                slide.classList.add('show-metrics');
+                clickArea.style.pointerEvents = 'none';
+            });
+        }
+    }
+
+    // Configurer pour les trois slides
+    setupMetricsReveal('slide4');
+    setupMetricsReveal('slide5');
+    setupMetricsReveal('slide6');
+});
+    </script>
+</body>
+</html>
